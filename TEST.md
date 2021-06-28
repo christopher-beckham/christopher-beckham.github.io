@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "PAGE TITLE"
-permalink: /jekyll/test/test2
+permalink: /blog/test
 ---
 
 *Testing 123*
