@@ -23,16 +23,48 @@ In 2017 the Wasserstein-GAN (WGAN) [2] was published and made some very interest
 - ones that do converge under non-Wasserstein divergences converge for Wasserstein;
 - the discriminator (called the _critic_ in the paper) under a WGAN gives non-saturating (clean) gradients everywhere, provided that the discriminator is [K-Lipschitz](https://en.wikipedia.org/wiki/Lipschitz_continuity) with respect to its parameters (for small `K`)
 
-Therefore, the key thing to somehow ensure that the discriminator is K-Lipschitz (for small K). In the original paper this was done via (1) weight clipping technique, and later this was followed by (2) gradient penalty and then (3) spectral normalisation. (1) is a bit excessive, (2) is rather expensive to compute and only penalises certain parts of the function, and (3) regularises the entire function and is rather cheap to compute. In particular, spectral norm ensures that the Lipschitz constant of the network is upper bounded by _one_ (1-Lipschitz), by constraining the largest singular value for each weight matrix in the discriminator network to be equal to one.
+Therefore, the key thing to somehow ensure that the discriminator is K-Lipschitz (for small K). In the original paper this was done via (1) weight clipping technique, and later this was followed by (2) gradient penalty and then (3) spectral normalisation. (1) is a bit excessive, (2) is rather expensive to compute and only penalises certain parts of the function, and (3) regularises the entire function and is rather cheap to compute. In particular, spectral norm [8] ensures that the Lipschitz constant of the network is upper bounded by _one_ (1-Lipschitz), by constraining the largest singular value for each weight matrix in the discriminator network to be equal to one. We'll talk about that later, but for now let's go back to basics.
 
-Prior to this work, these were many tricks that I saw on how to stabilise GAN training [4]. While I don't want to say that none of these have any utility anymore whatsoever, I have not had to use any of these. I feel however that any newcomers may stumble across such things and not realise that there are more straightforward ways to train GANs now.
+To briefly summarise WGAN [2], via the Kantorovich-Rubenstein (KR) duality, the Wasserstein distance between two distributions can be expressed as the following:
+
+$$ W(P_r, P_{\theta}) = \sup_{||D||_{L} \leq 1} \mathbb{E}_{x \sim P_r} D(x) - \mathbb{E}_{x \sim P_{\theta}} D(x), $$
+
+where $P_r$ refers to the real distribution and $P_{\theta}$ the generator's distribution, and $D(x) \in \mathbb{R}$.. Unlike the original paper, I am using $D(\cdot)$ to denote the discriminator (critic) instead of $f(\cdot)$. The supremum is basically saying that the Wasserstein distance corresponds to the function $D$ that makes the following term as large as possible, i.e. make $\mathbb{E}_{x \sim P_r} D(x)$ very large and $ \mathbb{E}_{x \sim P_{\theta}} D(x)$ very small. Equivalently, modifying the supremum so that it instead is over $K$-Lipschitz functions simply amounts to multiplying the distance by the scaling factor $K$, i.e:
+
+$$ K \cdot W(P_r, P_{\theta}) = \sup_{||D||_{L} \leq K} \mathbb{E}_{x \sim P_r} D(x) - \mathbb{E}_{x \sim P_{\theta}} D(x). $$
+
+While we obviously cannot compute such a supremum, the basic idea is to just enforce that Lipschitz constraint on $D$ and treat it as a network that simply approximates the true Wasserstein distance. Quite simply, $W$ is the loss that the discriminator tries to maximise, while the generator tries to minimise it. In other words, $D$ tries to maximise the distance between the real and generated distributions, while $G$ tries to make them as similar as possible. Therefore, we can write $D$ and $G$'s losses as:
+
+$$
+\mathcal{L}_{D} = \max_{D} \mathbb{E}_{x \sim P_r} D(x) - \mathbb{E}_{x \sim P_{\theta}} D(x)  \\
+= \min_{D} \underbrace{\mathbb{E}_{x \sim P_{\theta}} D(x)}_{\text{make as small as possible}} - \underbrace{\mathbb{E}_{x \sim P_r} D(x)}_{\text{make as large as possible}}
+\\
+\mathcal{L}_{G} = \min_{G} - \underbrace{\mathbb{E}_{x \sim P_{\theta}} D(x)}_{\text{make as large as possible}}
+$$
+(sorry that this crap isn't aligned, I'm having a hard time doing this with Markdeep)
+
+Note that for $D$ I am writing its loss both as a _maximisation_ and a _minimisation_ (which is just the negative of the maximisation). The former is convenient if you want to think about the two networks' losses in terms of a minimax game, but the latter is more convenient for an actual implementation since we tend to minimise loss functions in code. Let us briefly compare this to JS-GAN's formulation, which is sort of similar but involving logs and a sigmoid nonlinearity on $D$:
+
+$$
+\mathcal{L}_{D} = \max_{D} \mathbb{E}_{x \sim P_r} \log \sigma(D(x)) + \mathbb{E}_{x \sim P_{\theta}} \log(1 - \sigma(D(x))) \ \ \ \text{(1)} \\
+= \max_{D} \mathbb{E}_{x \sim P_r} \log D_r(x) - \mathbb{E}_{x \sim P_{\theta}} \log(D_f(x)) \ \ \ \text{(2)} \\
+$$
+
+where I have decided to define two outputs on $D$ --as if we were modelling this two-class problem as a softmax classification) -- so that we can remove the sigmoid term and turn the summation term in (1) into a subtraction in (2) to be more reminiscent of WGAN's loss. Finally, the log function can just be thought of as a non-linearity as well. An interesting [appendix bit](http://proceedings.mlr.press/v70/arjovsky17a/arjovsky17a-supp.pdf) that the author of WGAN wrote was that under a Lipschitz constraint, JS-GAN is quite similar to WGAN:
 
 <div id="images">
-<img class="figg" src="old_tricks.png" alt="" />
+<figure>
+<img class="figg" src="wgan_appendix_detail.png" alt="" width=600 />
+</figure>
+<figcaption>Figure 1: Interesting appendix detail about JSGAN, found in the supplementary material from WGAN.</figcaption>
 </div>
 
-The simplest thing to do now is to wrap every linear and conv layer in your discriminator with spectral normalisation. I won't speak for TensorFlow but for PyTorch this is really easy:
+I find this interesting, because there is some evidence to suggest that in practice a Lipschitz'd JS-GAN performs better than a Lipschitz'd WGAN:
+- it seems to be the case in the spectral norm GAN paper [8] (though the comparisons between JS and WGAN actually used gradient penalty (GP));
+- some peeps [here](https://github.com/christiancosgrove/pytorch-spectral-normalization-gan/issues/9) and [here](https://github.com/christiancosgrove/pytorch-spectral-normalization-gan/issues/6) posted issues on getting SN to work with WGAN, and even the author of the paper [had trouble himself](https://github.com/pfnet-research/sngan_projection/issues/15);
+- and lastly I vaguely recall (though don't quote me on this) that I achieved lower Inception scores on an old project that tried leveraging SN with WGAN.
 
+Maybe it's a mystery for now, but if it's any consolation, theoretically both the regularised JSGAN and WGAN formulations are very similar and in practice you should just use JS-GAN, or even better, the hinge loss proposed in [8]. Spectral normalisation has been in PyTorch for quite some time now, and it's as simply as wrapping each linear and conv layer in your discriminator with `torch.nn.utils.spectral_norm`:
 
 ```python
 import torch
@@ -49,6 +81,12 @@ layer_l = spec_norm(nn.Linear(n_in, n_out))
 
 layer_c = spec_norm(nn.Conv2d(n_in, n_out, kernel_size=3))
 ```
+
+Prior to this work, these were many tricks that I saw on how to stabilise GAN training [4]. While I don't want to say that none of these have any utility anymore whatsoever, I have not had to use any of these. I feel however that any newcomers may stumble across such things and not realise that there are more straightforward ways to train GANs now.
+
+<div id="images">
+<img class="figg" src="old_tricks.png" alt="" />
+</div>
 
 # Structuring the code cleanly
 
@@ -179,7 +217,7 @@ EPOCH: 005, TRAIN_D_LOSS: 0.4235636, TRAIN_G_LOSS: 1.457234, TIME: 450.353 SEC .
 ...
 ...
 ...
-<continue until your eyes get sore>
+(continue until your eyes get sore)
 ```
 
 
@@ -292,7 +330,8 @@ Ultimately, I feel like whatever evaluation metric you use really depends on wha
 
 # Resources
 
-- [PyTorch generative model collections](https://github.com/znxlwm/pytorch-generative-model-collections). Figure 1's JS-GAN was trained with this repo, spectral normalisation was added to the code by wrapping each linear and conv definition in `GAN.py`.
+- [a]: [PyTorch generative model collections](https://github.com/znxlwm/pytorch-generative-model-collections). Figure 1's JS-GAN was trained with this repo, spectral normalisation was added to the code by wrapping each linear and conv definition in `GAN.py`.
+- [b]: [Christian Cosgrove's](https://github.com/christiancosgrove/pytorch-spectral-normalization-gan) minimal HingeGAN + spectral norm implementation on CIFAR10. It was very useful to me when I started getting serious about GANs a few years ago.
 
 # References
 
@@ -304,6 +343,28 @@ Ultimately, I feel like whatever evaluation metric you use really depends on wha
 - [6]: Farnia, F., & Ozdaglar, A. (2020, November). Do GANs always have Nash equilibria?. In International Conference on Machine Learning (pp. 3029-3039). PMLR.
 - [7]: https://parameterfree.com/2020/12/06/neural-network-maybe-evolved-to-make-adam-the-best-optimizer/
 - [8]: Miyato, T., Kataoka, T., Koyama, M., & Yoshida, Y. (2018). Spectral normalization for generative adversarial networks. arXiv preprint arXiv:1802.05957.
+
+-------
+
+<div id="disqus_thread"></div>
+<script>
+    /**
+    *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+    *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables    */
+    /*
+    var disqus_config = function () {
+    this.page.url = 'www.beckham.nz/blog/0001-gan-tips';  // Replace PAGE_URL with your page's canonical URL variable
+    this.page.identifier = '0001'; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+    };
+    */
+    (function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'https://www-beckham-nz.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
 
 -------
 
@@ -472,23 +533,6 @@ plt.title(lm_str)
 "%.2fx + %.2f" % (lm.coef_[0][0], lm.intercept_[0])
 ```
 
-
-<div id="disqus_thread"></div>
-<script>
-
-    var disqus_config = function () {
-    this.page.url = 'http://www.beckham.nz/blog/0001-gan-tips/';  // Replace PAGE_URL with your page's canonical URL variable
-    this.page.identifier = '0001'; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
-    };
-
-    (function() { // DON'T EDIT BELOW THIS LINE
-    var d = document, s = d.createElement('script');
-    s.src = 'https://www-beckham-nz.disqus.com/embed.js';
-    s.setAttribute('data-timestamp', +new Date());
-    (d.head || d.body).appendChild(s);
-    })();
-</script>
-<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
 
 <!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="markdeep.min.js" charset="utf-8"></script><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js?" charset="utf-8"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
 
