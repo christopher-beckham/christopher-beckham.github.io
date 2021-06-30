@@ -1,0 +1,65 @@
+                <meta charset="utf-8" emacsmode="-*- markdown -*-">
+                            **Christopher Beckham**
+
+PhD student, Quebec Artficial Intelligence Institute.<br />
+<b>Research interests:</b> self-supervised learning, generative models, few-shot learning, inverse graphics <br />
+<b>Contact:</b> christopher.beckham(at)mila(dot)quebec
+
+Blogs
+===============================================================================
+
+I now write blog posts as a way to produce content that is not subjected to the bane of peer review. Also it is less formal. You can check out those musings [here](/blog).
+
+Selected papers
+===============================================================================
+
+Below is a selection of papers I have published. For a full list, please see my Google Scholar.
+
+Conferences
+-------------------------------------------------------------------------------
+
+<img src="figures/amr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> **Beckham, C.**, Honari, S., Verma, V., Lamb, A. M., Ghadiri, F., Hjelm, R. D., Bengio, Y., & Pal, C. (2019). _On adversarial mixup resynthesis._ In Advances in Neural Information Processing Systems (pp. 4346-4357).
+<span style="font-size:60%;">[`[`paper`]`](https://papers.nips.cc/paper/8686-on-adversarial-mixup-resynthesis) [`[`code`]`](https://github.com/christopher-beckham/amr) [`[`video`]`](https://www.youtube.com/watch?v=ezbC3_VZeNY) </span>
+<br /> 
+<span style="font-size:80%;"><i>tldr: We leverage mixing functions and adversarial learning to perform representation learning in the bottleneck of a deterministic autoencoder. This can be leveraged as a generative model to produce novel examples (through mixing latent codes of known examples) and also avoid some of the shortcomings commonly observed in variational autoencoder (VAE) models.</i></span>
+
+<img src="figures/mm.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Verma, V., Lamb, A., **Beckham, C.**, Najafi, A., Mitliagkas, I., Lopez-Paz, D., & Bengio, Y. (2019, May). _Manifold mixup: Better representations by interpolating hidden states._ In International Conference on Machine Learning (pp. 6438-6447).
+<span style="font-size:60%;">[`[`paper`]`](http://proceedings.mlr.press/v97/verma19a.html) [`[`code`]`](https://github.com/vikasverma1077/manifold_mixup)</span>
+<br />
+<span style="font-size:80%;"><i>tldr: Perform mixup (Zhang et al, 2017) but in the hidden layers of a classifier, mixing pairs of hidden states. This can be seen as performing implicit data augmentation by leveraging features internally learned by the classifier. Competitive accuracies are achieved with respect to the original mixup and other baselines.</i></span>
+
+<img src="figures/depthnet.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Moniz, J. R. A. <span>&#8224;</span>, <b>Beckham, C. </b><span>&#8224;</span>, Rajotte, S., Honari, S., & Pal, C. (2018). _Unsupervised depth estimation, 3D face rotation and replacement._ In Advances in Neural Information Processing Systems (pp. 9736-9746). (<span>&#8224;</span> = equal authorship)
+<span style="font-size:60%;">[`[`paper`]`](https://papers.nips.cc/paper/8181-unsupervised-depth-estimation-3d-face-rotation-and-replacement) [`[`code`]`](https://github.com/joelmoniz/DepthNets) [`[`video`]`](https://www.youtube.com/watch?v=h_brJWd7nNg)</span>
+<br />
+<span style="font-size:80%;"><i>tldr: We perform unsupervised depth estimation by conditioning on source and target keypoints of an object to predict depth, which is subsequently used to parameterise an affine transformation from a source to a target. The inferred depths are well correlated with the ground truth depths and can be used (in our case) to perform various transformations of a face mesh.</i></span>
+
+<img src="figures/weather.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Racah, E., **Beckham, C.**, Maharaj, T., Kahou, S. E., Prabhat, M., & Pal, C. (2017). _ExtremeWeather: A large-scale climate dataset for semi-supervised detection, localization, and understanding of extreme weather events._ In Advances in Neural Information Processing Systems (pp. 3402-3413). <span style="font-size:60%;">[`[`paper`]`](https://papers.nips.cc/paper/6932-extremeweather-a-large-scale-climate-dataset-for-semi-supervised-detection-localization-and-understanding-of-extreme-weather-events) [`[`dataset`]`](https://extremeweatherdataset.github.io/)</span> <br />
+<span style="font-size:80%;"><i>tldr: We propose a high-resolution time series dataset of climate simulations with ground truth labels to perform classification and bounding box prediction. We hope this will be useful in the battle against climate change.</i>
+</span>
+
+<img src="figures/unimodal.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> **Beckham, C.**, & Pal, C. (2017, July). _Unimodal probability distributions for deep ordinal classification._ In International Conference on Machine Learning (pp. 411-419). <span style="font-size:60%;">[`[`paper`]`](http://proceedings.mlr.press/v70/beckham17a.html)</span>
+<br />
+<span style="font-size:80%;"><i>tldr: Unimodal distributions are a natural way to fit probability distributions for many ordinal classification tasks. We use deep nets to parameterise binomial and Poisson distributions with optional temperature scaling to control distribution variance.</i></span>
+
+Workshops
+-------------------------------------------------------------------------------
+
+<img src="figures/sqerr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> **Beckham, C.**, & Pal, C. (2016). _A simple squared-error reformulation for ordinal classification._ arXiv preprint arXiv:1612.00775. _(Accepted into NIPS 2016: Machine Learning for Health)_ <br />
+<span style="font-size:80%;"><i>tldr: Treat ordinal classification as a regression problem, but still maintain a discrete probability distribution over classes by computing the regression as the expectation of integer labels over that distribution.</i></span>
+
+Pre-prints
+-------------------------------------------------------------------------------
+
+<img src="figures/clevr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> <b>Beckham, C.</b>, Weiss, M., Golemo, F., Honari, S., Nowrouzezahrai, D., Pal, C. (2020). _Visual Question Answering From Another Perspective: CLEVR Mental Rotation Tests._ OpenReview. <br />
+<span style="font-size:80%;"><i>tldr: Fuse mental rotation tests with CLEVR visual-question answering (VQA). The goal is to be able to answer a question from a random viewpoint that is not the same as the viewpoint given to the VQA model. We also propose the use of contrastive learning to learn a 2D-to-3D volumetric encoder, without camera extrinsics.</i></span>
+
+<img src="figures/genseg.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Vorontsov, E., Molchanov, P., <b>Beckham, C.</b>, Byeon, W., De Mello, S., Jampani, V., ... & Kautz, J. (2019). _Towards semi-supervised segmentation via image-to-image translation._ arXiv preprint arXiv:1904.01636. <br />
+<span style="font-size:80%;"><i>tldr: Ground truth images for segmentations are laborious and costly to obtain. By leveraging weaker labels, i.e. whether an image is of a sick/healthy patient, we can leverage image-to-image translation techniques (translating between sick and healthy domains) to augment performance of the segmentation network.</i></span>
+
+Reviewing
+-------------------------------------------------------------------------------
+
+NeurIPS (2019, 2020), SIGGRAPH Asia (2020), ICLR (2020, 2021)
+
+
+<!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="markdeep.min.js" charset="utf-8"></script><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js?" charset="utf-8"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
