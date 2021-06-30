@@ -1,6 +1,6 @@
 ---
 layout: cv
-title: CV
+title: Home
 permalink: /
 ---
 

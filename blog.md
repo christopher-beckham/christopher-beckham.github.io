@@ -1,6 +1,6 @@
 ---
 layout: page
-title: "Blog posts"
+title: "Blog"
 permalink: /blog
 comments: false
 ---
