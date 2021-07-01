@@ -11,6 +11,9 @@ Welcome to my first blog post! I am years overdue in doing this. To preface thin
 - This post assumes you have some familiarity with GANs and how they work, and that you have implemented a GAN at least once. If not, you may find some sections confusing.
 - Also, because I don't typically dabble with high-resolution GAN models (i.e. BigGAN, PGAN), you shouldn't expect to see any tricks on how to get those models to work. My day-to-day research often involves training GANs of a 'modest' resolution (32px, 64px), so the tricks I explain here are mostly applicable to those models.
 
+Updates:
+ - (01/07/2020) Added section in how to deal with more than one noise variable as input; extra text on FID and Inception metrics.
+
 <h2>Table of contents</h2>
 
 - Table of contents
@@ -25,7 +28,7 @@ In 2017 the Wasserstein-GAN (WGAN) [[#ref:wgan]](#ref_wgan) was published and ma
 - ones that do converge under non-Wasserstein divergences converge for Wasserstein;
 - the discriminator (called the _critic_ in the paper) under a WGAN gives non-saturating (clean) gradients everywhere, provided that the discriminator is [K-Lipschitz](https://en.wikipedia.org/wiki/Lipschitz_continuity) with respect to its parameters (for small $$K$$).
 
-Therefore, the key thing to somehow ensure that the discriminator is $$K$$-Lipschitz (for some small $$K$$). In the original paper this was done via (1) weight clipping technique, and in later literature this was followed by (2) gradient penalty [[#ref:wgan_gp]](#ref_wgangp) and then (3) spectral normalisation [[#ref:sn]](#ref_sn). A quick summary of these is that (1) is overly excessive in its regularisation, (2) is rather expensive to compute and only penalises certain parts of the function, and (3) regularises the entire function and is rather cheap to compute. In particular, spectral norm[[#ref:sn]](#ref_sn) ensures that the Lipschitz constant of the network is upper bounded by _one_ (1-Lipschitz), by constraining the largest singular value for each weight matrix in the discriminator network to be equal to one. We'll talk about that later, but for now let's go back to basics.
+Therefore, the key thing is to somehow ensure that the discriminator is $$K$$-Lipschitz (for some small $$K$$). In the original paper this was done via (1) weight clipping technique, and in later literature this was followed by (2) gradient penalty [[#ref:wgan_gp]](#ref_wgangp) and then (3) spectral normalisation [[#ref:sn]](#ref_sn). A quick summary of these is that (1) is overly excessive in its regularisation, (2) is rather expensive to compute and only penalises certain parts of the function, and (3) regularises the entire function and is rather cheap to compute. In particular, spectral norm[[#ref:sn]](#ref_sn) ensures that the Lipschitz constant of the network is upper bounded by _one_ (1-Lipschitz), by constraining the largest singular value for each weight matrix in the discriminator network to be equal to one. We'll talk about that later, but for now let's go back to basics.
 
 To briefly summarise WGAN [[#ref:wgan]](#ref_wgan), via the Kantorovich-Rubenstein (KR) duality, the Wasserstein distance between two distributions can be expressed as the following:
 
@@ -346,11 +349,60 @@ Here are some things you should keep in mind about FID:
 
 There are other problems too. See 'A note on the inception score' [5] for a comprehensive critique of these scores.
 
+Either way, you should be monitoring these metrics _during training_, as opposed to simply training the GAN for a fixed number of epochs and evaluating them afterwards. Think about this as being no different from training a classifier and monitoring its validation set accuracy during training: you want to know if image quality is improving over time, and you want to know if you're able to stop training early when the FID/Inception plateaus or gets worse. Since these metrics can be expensive to compute, set up your code so that the metrics are computed every few epochs, so that you don't completely bottleneck your training time.
+
 ## Which is the best?
 
 Ultimately, I feel like whatever evaluation metric you use really depends on what your downstream task is. If you just want to generate pretty images then sure, use something like FID or Inception. If however you are using GANs for something like data augmentation, then an appropriate metric would be training a classifier on that augmented data and seeing how well it performs on a held-out set.
 
 While GANs are great in many aspects, one of their biggest downsides is not having a theoretically straightforward way of evaluating likelihoods. VAEs more or less give you this, by allowing you to compute a lower bound on $$p(x)$$.
+
+# Conditioning on more than one noise variable
+
+Sometimes you may want to train a more flexible generator, one that is able to be conditioned on more than one noise variable. For instance, rather than $$G(z)$$ you may want $$G(z, c)$$, where $$c \sim p(c)$$ comes from some other prior distribution, e.g. a Categorical distribution. If you train the GAN, you will most likely find that it completely ignores one noise variable and uses the other.
+
+In order to resolve this, you should turn to InfoGAN [[#ref:infogan]](#ref_infogan). Put simply, the discriminator should have two additional output branches, one to predict both latent codes fed into the generator, and you should train the discriminator to be able to predict these codes from the generated image. In other words, we want to maximise the _mutual information_ between the original codes input $$(z, c)$$ and the generated image $$G(z, c)$$. One caveat however, we actually want to minimise such a loss with respect to _both_ generator and discriminator; so this loss isn't adversarial per se, but more like a 'cooperative' loss that both networks have to minimise. Here is some pseudo-code, assuming $$p(c)$$ here is a Categorical distribution:
+```python
+def train_on_batch(x):
+
+  opt_d.zero_grad()
+  opt_g.zero_grad()
+  # or opt_all.zero_grad()
+
+  c = sample_c(x.size(0))
+  z = sample_z(x.size(0))
+
+  # generator loss
+  x_fake = G(z, c)
+  ...
+  ...
+  # discriminator loss
+  d_realfake, _, _ = D(x_fake)
+  ...
+  ...
+
+  # `opt_all` wraps both the generator
+  # and discriminator parameters, since we
+  # we want to minimise the infogan loss
+  # wrt to both networks.
+  opt_all.zero_grad()
+  # imagine D has three output layers: one
+  # to determine real/fake, and the other two
+  # for our noise variables.
+  _, d_out_c, d_out_z = D(x_fake)
+  z_loss = torch.mean((d_out_z-z)**2)
+  # you could also use mean squared error here,
+  # but i'm using the x-entropy to be more correct
+  # about it, since p(c) is a multinomial distribution.
+  # this means that `d_out_c` has been transformed with
+  # the softmax nonlinearity.
+  c_loss = categorical_crossentropy(d_out_c, c).mean()
+  infogan_loss = z_loss + c_loss
+  infogan_loss.backward()
+  opt_all.step()
+  
+
+```
 
 # Resources
 
@@ -364,13 +416,14 @@ If you think I've missed something or you've spotted an error, please let me kno
 # References
 
 - {: #ref_colin } \[1\]: https://colinraffel.com/blog/gans-and-divergence-minimization.html
-- {: #ref_wgan } \[2\]: Arjovsky, M., Chintala, S., & Bottou, L. (2017, July). Wasserstein generative adversarial networks. In International conference on machine learning (pp. 214-223). PMLR.
-- {: #ref_wgangp } \[3\]: Gulrajani, I., Ahmed, F., Arjovsky, M., Dumoulin, V., & Courville, A. (2017). Improved training of wasserstein gans. arXiv preprint arXiv:1704.00028.
+- {: #ref_wgan } \[2\]: Arjovsky, M., Chintala, S., & Bottou, L. (2017, July). Wasserstein generative adversarial networks. In International conference on Machine Learning (pp. 214-223). PMLR.
+- {: #ref_wgangp } \[3\]: Gulrajani, I., Ahmed, F., Arjovsky, M., Dumoulin, V., & Courville, A. (2017). Improved training of Wasserstein GANs. arXiv preprint arXiv:1704.00028.
 - {: #ref_ganhacks } \[4\]: https://github.com/soumith/ganhacks
 - {: #ref_simon } \[5\]: Barratt, S., & Sharma, R. (2018). A note on the inception score. arXiv preprint arXiv:1801.01973.
 - {: #ref_nash } \[6\]: Farnia, F., & Ozdaglar, A. (2020, November). Do GANs always have Nash equilibria?. In International Conference on Machine Learning (pp. 3029-3039). PMLR.
 - {: #ref_adam_evolve } \[7\]: https://parameterfree.com/2020/12/06/neural-network-maybe-evolved-to-make-adam-the-best-optimizer/
 - {: #ref_sn } \[8\]: Miyato, T., Kataoka, T., Koyama, M., & Yoshida, Y. (2018). Spectral normalization for generative adversarial networks. arXiv preprint arXiv:1802.05957.
+- {: #ref_infogan } \[9\]: Chen, X., Duan, Y., Houthooft, R., Schulman, J., Sutskever, I., & Abbeel, P. (2016, December). InfoGAN: Interpretable representation learning by information maximizing generative adversarial nets. In Proceedings of the 30th International Conference on Neural Information Processing Systems (pp. 2180-2188).
 
 # Appendix
 
