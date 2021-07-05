@@ -12,6 +12,7 @@ Welcome to my first blog post! I am years overdue in doing this. To preface thin
 - Also, because I don't typically dabble with high-resolution GAN models (i.e. BigGAN, PGAN), you shouldn't expect to see any tricks on how to get those models to work. My day-to-day research often involves training GANs of a 'modest' resolution (32px, 64px), so the tricks I explain here are mostly applicable to those models.
 
 Updates:
+ - (04/07/2020) Added extra tip in 'common pitfalls' about image sizes.
  - (01/07/2020) Added section in how to deal with more than one noise variable as input; extra text on FID and Inception metrics.
 
 <h2>Table of contents</h2>
@@ -234,6 +235,7 @@ g_loss = bce( D(x_fake), ones )
 # Easy or common pitfalls to make
 
 - Make sure that your generated samples are in the same range as your real data. For instance, if your real data is always in `[-1, 1]` but your fake data is in `[0, 1]`, that is something that the discriminator can pick up on to easily distinguish real from fake, and could result in degenerate training. My own rule of thumb is to always do non-fancy preprocessing on the real inputs: simply put it in the range `[-1, 1]` by performing `(x-0.5)/0.5`, and make the output of your generator function `tanh`. When you want to visualise those images in matplotlib, simply denormalise by computing `x*0.5 + 0.5`.
+- If your generated images are _not_ the same size (spatial dimension) as your real images, the discriminator can easily pick up on this and your generator loss will climb extremely high. This may seem like a no-brainer but I have made this mistake a few times. An example of this is MNIST: the default size of the images in `torchvision.datasets.MNIST` is 28x28 but your generator architecture may generate 32x32 images, so in this case make sure you add a `torchvision.transform` that resizes the MNIST digit to 32x32.
 - Batch norm can sometimes be unpredictable and result in wildly different generated images at training or test time (where in training time the batch statistics are computed over the minibatch, and at test time the moving averages are used). Usually I just use instance norm in place, of it. I've been bitten by batch norm's intracacies too many times.
 
 
