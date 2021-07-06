@@ -12,6 +12,7 @@ Welcome to my first blog post! I am years overdue in doing this. To preface thin
 - Also, because I don't typically dabble with high-resolution GAN models (i.e. BigGAN, PGAN), you shouldn't expect to see any tricks on how to get those models to work. My day-to-day research often involves training GANs of a 'modest' resolution (32px, 64px), so the tricks I explain here are mostly applicable to those models.
 
 Updates:
+ - (05/07/2020) Added a minimal SN-GAN implementation of MNIST on Colab [here](https://colab.research.google.com/drive/1avdwluveEajUyxkKqvJg5YtDYEpq7GMW?usp=sharing).
  - (04/07/2020) Added extra tip in 'common pitfalls' about image sizes.
  - (01/07/2020) Added section in how to deal with more than one noise variable as input; extra text on FID and Inception metrics.
 
