@@ -16,6 +16,18 @@ Updates:
  - (04/07/2020) Added extra tip in 'common pitfalls' about image sizes.
  - (01/07/2020) Added section in how to deal with more than one noise variable as input; extra text on FID and Inception metrics.
 
+If you found this useful and wish to cite it, you can use this corresponding Bibtex entry:
+```
+@misc{beckhamc_traininggans,
+  author = {Beckham, Christopher},
+  title = {Training {GAN}s the right way},
+  year = {2021},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://beckham.nz/2021/06/28/training-gans.html}}
+}
+```
+
 <h2>Table of contents</h2>
 
 - Table of contents
