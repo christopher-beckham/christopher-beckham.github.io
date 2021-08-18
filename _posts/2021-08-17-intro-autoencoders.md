@@ -457,3 +457,5 @@ There is some literature which favours the use of L1 instead of L2, for instance
 - {: #ref_restore } \[2]\: Zhao, Hang, et al. "Loss functions for image restoration with neural networks." IEEE Transactions on computational imaging 3.1 (2016): 47-57.
 - {: #ref_cyclegan } \[3]\: Zhu, Jun-Yan, et al. "Unpaired image-to-image translation using cycle-consistent adversarial networks." Proceedings of the IEEE international conference on computer vision. 2017.
 - {: #ref_vae_kingma } \[4]\: Kingma, Diederik P., and Max Welling. "Auto-encoding variational bayes." arXiv preprint arXiv:1312.6114 (2013).
+
+{% include disqus.html %}
