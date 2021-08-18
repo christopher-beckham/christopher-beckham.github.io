@@ -23,6 +23,9 @@ In this blog post, I will:
 - Derive gradients for different formulations of a Gaussian autoencoder, and suggest why I think you should use the Laplace distribution, which is closely related to Gaussian.
 - **(Coming soon)** Provide some code which allows you to easily train a Gaussian or Laplacian VAE on MNIST. This code leverages PyTorch's `torch.distributions` module which heavily eases implementation of variational methods.
 
+Updates:
+- (18/08/2021) Thanks Vikram Voleti for pointing out numerous errors: (1) error where the numerator for the log RMSE gradient was incorrectly being multiplied by 2; and (2) Fig 4's plot not being consistent with its equation.
+
 <h2>Table of contents</h2>
 - Table of contents:
 {:toc}
@@ -272,15 +275,15 @@ verify_gradient()
 
 $$
 \begin{align}
-\displaystyle \frac{2 \left(x_{1} - y_{1}\right)}{\left(x_{1} - y_{1}\right)^{2} + \left(x_{2} - y_{2}\right)^{2}}
+\displaystyle \frac{\left(x_{1} - y_{1}\right)}{\left(x_{1} - y_{1}\right)^{2} + \left(x_{2} - y_{2}\right)^{2}}
 \end{align}
 $$
 
-It's worth mentioning that ommitting the square root here doesn't actually change the resulting gradient (you can verify this by removing the `sqrt` call in `verify_gradient`), so from now on I will call this the _log mean squared error_. To re-write the gradient more formally:
+It's worth mentioning that ommitting the square root here simply multiplies the gradient by `2` (you can verify this by removing the `sqrt` call in `verify_gradient`), so from now on I will call this the _log mean squared error_ since it really doesn't change anything. To re-write the gradient more formally:
 
 $$
 \begin{align} \tag{6}
-\frac{\partial L}{\partial x_i} = \frac{2(x_i - y_i)}{||x - y||_{2}^{2}}
+\frac{\partial L}{\partial x_i} = \frac{(x_i - y_i)}{||x - y||_{2}^{2}}
 \end{align}
 $$
 
@@ -291,7 +294,7 @@ xs = np.linspace(0.95,1.05,num=1000)
 deltas = [0.05, 0.1, 0.5]
 for delta in deltas:
     # assume y=1 here
-    ys = (2*(xs-1)) / ( (xs-1+delta) )
+    ys = (xs-1) / ( (xs-1)**2 + delta )
     plt.plot(xs,ys**2)
 plt.ylabel('grad**2')
 plt.title('y=1')
@@ -308,7 +311,7 @@ plt.plot(xs,ys_mse**2, c="black", linestyle="dotted")
 <figure>
 <img class="figg" src="/assets/02/output_17_1.png" alt="" width=400 />
 </figure>
-<figcaption>Figure 4: Examining the gradient of log MSE described in Equation (6), for different `delta`'s. The dotted black line is the corresponding gradient for MSE.</figcaption>
+<figcaption>Figure 4: Examining the gradient of log MSE described in Equation (6), for different `delta`'s. The dotted black line is the corresponding gradient for MSE, where `\frac{\partial (x-y)^2}{\partial x} = 2(x-y)`.</figcaption>
 <br />
 </div>
 
