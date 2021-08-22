@@ -24,6 +24,7 @@ In this blog post, I will:
 - **(Coming soon)** Provide some code which allows you to easily train a Gaussian or Laplacian VAE on MNIST. This code leverages PyTorch's `torch.distributions` module which heavily eases implementation of variational methods.
 
 Updates:
+- (22/08/2021) Provide minimalistic code to implement the AE/VAE forward pass with `torch.distributions`.
 - (18/08/2021) Thanks Vikram Voleti for pointing out numerous errors: (1) error where the numerator for the log RMSE gradient was incorrectly being multiplied by 2; and (2) Fig 4's plot not being consistent with its equation.
 
 <h2>Table of contents</h2>
@@ -454,11 +455,118 @@ This may be undesirable behaviour if you really want crisp reconstructions that 
 
 There is some literature which favours the use of L1 instead of L2, for instance image restoration [[#ref:restore]](#ref_restore) and image translation [[#ref:cyclegan]](#ref_cyclegan).
 
+# Code
+
+## Minimalistic forward pass of an AE / VAE
+
+I want to illustrate how `torch.distributions` makes it easy for you to define sampling and training objectives of an autoencoder. This is a toy example that only covers the forward pass of a `silly' encoder/decoder (essentially linear convolutions), but it can be easily adapted for a real architecture.
+
+For a deterministic autoencoder (AE):
+
+```python
+import torch
+from torch import nn
+from torch.distributions import (Normal,
+                                 kl_divergence)
+
+def compute_nll_ae(input, encoder, decoder):
+
+    # encoder() returns mu and log stdev,
+    # but we don't need log stdev for
+    # deterministic AE
+    z, _ = encoder(input).chunk(2, dim=1)
+    px_given_z_mu = decoder(z)
+    
+    # torch.ones_like for the 2nd argument since we are fixing
+    # the variance to one
+    nll = -Normal(px_given_z_mu, torch.ones_like(px_given_z_mu)).\
+        log_prob(input).sum(dim=(1,2,3)).mean()
+    
+    return nll
+    
+```
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/02/ae_code_decoder.png" alt="" width=700 />
+</figure>
+<figcaption>Figure 6: We parameterise the output distribution `p(x|z)` using <code>Normal</code>, passing in <code>px_given_z_mu = encoder(z)</code>, and simply setting the variance to be one as is the case in Equation (5). <code>log_prob.sum(dim=(1,2,3)).mean()</code> essentially computes the NLL that is described in Equation (4).</figcaption>
+<br />
+</div>
+
+Define some senseless input:
+
+```python
+# batch size of 4, 1x32x32 image
+xb = torch.randn((4,1,32,32))
+```
+
+```python
+# Define a 'silly' encoder, it just strides the input by 2.
+# Output dim is 32*2 because we need 32 features for the mean,
+# and 32 for variance.
+encoder = nn.Conv2d(1, 32*2, stride=2, kernel_size=3, padding=1)
+```
+
+Define the encoder and decoder architectures:
+
+```python
+# Define a 'silly' decoder, it just does a transposed conv
+# to put us back in 32x32.
+decoder = nn.ConvTranspose2d(32, 1, kernel_size=2, stride=2 )
+```
+
+```python
+# returns the mean NLL which you can backward() on
+compute_nll_ae(xb, encoder, decoder)
+```
+
+For variational autoencoders (VAEs), you would have to also define the variational distribution
+$$q(\mathbf{z}|\mathbf{x})$$.
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/02/ae_code_encoder.png" alt="" width=700 />
+</figure>
+<figcaption>Figure 7: For VAEs we must define the variational distribution `q(z|x)`, which we have also defined here to be a Gaussian. <code>rsample()</code> makes it possible to backpropagate through the sampling operation -- this is called the reparameterisation trick, see [5].</figcaption>
+<br />
+</div>
+
+```python
+def compute_elbo_vae(input, encoder, decoder, beta=1.0):
+
+    z_mu, z_logsd = encoder(input).chunk(2, dim=1)
+    qz_given_x = Normal(z_mu, torch.exp(z_logsd))
+    # sampling from q(z|x), which is needed for VAEs.
+    # if it's a deterministic autoencoder, 
+    z = qz_given_x.rsample()
+    px_given_z_mu = decoder(z)
+    
+    # torch.ones_like for the 2nd argument since we are fixing
+    # the variance to one
+    nll = -Normal(px_given_z_mu, torch.ones_like(px_given_z_mu)).\
+        log_prob(input).sum(dim=(1,2,3)).mean()
+    
+    prior_z = Normal(torch.zeros_like(z_mu), torch.ones_like(z_mu))
+    kl_loss = kl_divergence(qz_given_x, prior_z).\
+                sum(dim=(1,2,3)).mean()
+    
+    return nll + beta*kl_loss
+    
+```
+
+```python
+compute_elbo_vae(xb, encoder, decoder)
+```
+
 # References
 
 - {: #ref_vae_yu } \[1\]: Yu, Ronald. "A Tutorial on VAEs: From Bayes' Rule to Lossless Compression." arXiv preprint arXiv:2006.10273 (2020).
 - {: #ref_restore } \[2]\: Zhao, Hang, et al. "Loss functions for image restoration with neural networks." IEEE Transactions on computational imaging 3.1 (2016): 47-57.
 - {: #ref_cyclegan } \[3]\: Zhu, Jun-Yan, et al. "Unpaired image-to-image translation using cycle-consistent adversarial networks." Proceedings of the IEEE international conference on computer vision. 2017.
 - {: #ref_vae_kingma } \[4]\: Kingma, Diederik P., and Max Welling. "Auto-encoding variational bayes." arXiv preprint arXiv:1312.6114 (2013).
+- {: #ref_reparam } \[5]\: https://gregorygundersen.com/blog/2018/04/29/reparameterization/
 
 {% include disqus.html %}
