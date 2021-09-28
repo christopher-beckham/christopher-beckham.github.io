@@ -249,7 +249,7 @@ Plugging this into Equation (4):
 $$
 \begin{align}
 \log(\sigma(\mathbf{z})) + \frac{\frac{1}{n}||(x - \mu(z))||}{\sigma(z)^2} & = \log( \sqrt{\text{MSE}} ) + \frac{\frac{1}{n}||(x - \mu(z))||}{ \sqrt{\text{MSE}}^2 } \\
-& = \log \Big(\sqrt{\frac{1}{n}||(x - \mu(z))||}\Big) + \require{cancel}\cancel{ \frac{\frac{1}{n}||(x - \mu(z))||}{\frac{1}{n}||(x - \mu(z))||} },
+& = \log \Big(\sqrt{\frac{1}{n}||(x - \mu(z))||}\Big) + 1,
 \end{align}
 $$
 
