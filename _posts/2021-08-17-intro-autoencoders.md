@@ -24,6 +24,7 @@ In this blog post, I will:
 - **(Coming soon)** Provide some code which allows you to easily train a Gaussian or Laplacian VAE on MNIST. This code leverages PyTorch's `torch.distributions` module which heavily eases implementation of variational methods.
 
 Updates:
+- (29/09/2021) Fix minor errors in derivations, make clearer the derivation of multivariate Gaussian likelihood.
 - (22/08/2021) Provide minimalistic code to implement the AE/VAE forward pass with `torch.distributions`.
 - (18/08/2021) Thanks Vikram Voleti for pointing out numerous errors: (1) error where the numerator for the log RMSE gradient was incorrectly being multiplied by 2; and (2) Fig 4's plot not being consistent with its equation.
 
@@ -89,7 +90,7 @@ Since we'd like to derive the log likelihood, taking the log and expanding out t
 
 $$
 \begin{align}
-\log \text{pdf}(x; \mu, \sigma) = \underbrace{-\log(2 \pi)}_{\text{const.}} - \log(\sigma) - \Big[ \frac{(x - \mu)^2 }{\sigma^2} \Big]
+\log \text{pdf}(x; \mu, \sigma) = \underbrace{-\frac{1}{2} \log(2 \pi)}_{\text{const.}} - \log(\sigma) - \Big[ \frac{(x - \mu)^2 }{\sigma^2} \Big]
 \end{align}
 $$
 
@@ -109,21 +110,29 @@ $$
 \end{align}
 $$
 
-Let us now consider a vector $$\mathbf{x}$$ (which you could think of as the flattened $$h \times w$$ matrix). For in the case of a multivariate Gaussian that is _isotropic_ (i.e. $$\sigma(\mathbf{z}) = \mathbf{I}\sigma_{z}$$, so each dimension has the same variance), we can define it as:
+Let us now consider a vector $$\mathbf{x}$$ (which you could think of as the flattened 2D matrix which represents the input image). For a multivariate Gaussian that is _isotropic_ (i.e. each dimension has the same variance and dimensions are independent), we can simply define the NLL as the sum of the NLL of the individual pixels:
 
 $$
 \begin{align} \tag{4}
-\frac{1}{n} \text{NLL}(\mathbf{x}; \mathbf{z}) \triangleq \frac{1}{n}\log(\sigma_{z}^2) + \frac{\frac{1}{n}||(\mathbf{x} - \mu(\mathbf{z}))||^{2}_{2}}{\sigma_{z}^2},
+\text{NLL}(\mathbf{x}; \mathbf{z}) & \triangleq \sum_{i=1}^{n} \text{NLL}(\mathbf{x}_{i}, \mathbf{z}_{i}) \\
+& = \sum_{i=1}^{n}\Big[ \log \sigma_{z} + \frac{(\mathbf{x}_{i} - \mu(\mathbf{z})_{i})^2}{\sigma_{z}^2} \Big] \\
+& = n \log(\sigma_{z}) + \sum_{i=1}^{n}\Big[ \frac{(\mathbf{x}_{i}-\mu(\mathbf{z})_{i})^2}{\sigma_{z}^2}\Big] \\
+& = n \log(\sigma_{z}) + \frac{1}{\sigma_{z}^2}||\mathbf{x}-\mu(\mathbf{z})||^{2}_{2}.
 \end{align}
 $$
 
-where $$\mathbf{z} = f_{\theta}(\mathbf{x})$$.
-I also multiplied the left-hand side by $$\frac{1}{n}$$ so I can turn the numerator in the right-hand side into a _mean_ squared error, rather than a _sum_ of squared errors. (Also, to make sure we are absolutely clear on notation for the numerator of the second term: $$||\mathbf{x}||_{2} = \sqrt{\sum_{j} \mathbf{x}_{j}^2}$$ is the L2 norm of $$\mathbf{x}$$. Simply squaring the norm $$||\mathbf{x}||_{2}^{2}$$ (note the superscript $$^2$$) simply squares it which removes the square root. This is because it is an unnecessary operation to add in the optimisation.)
-
-Typically with autoencoders, the variance term is assumed to be fixed to $$\sigma_{z}^2=1$$ across all dimensions. In other words, for Equation (2) $$\text{diag}(\sigma(\mathbf{z}))_{i} = \sigma_{z}$$ for all $$i$$.  This means that the first term cancels $$\log(1) = 0$$ which yields us the mean squared error (MSE) loss:
+where $$\mathbf{z} = f_{\theta}(\mathbf{x})$$. Such an expression can also be derived easily by taking the equation of a multivariate Gaussian that is defined by a mean vector $$\boldsymbol{\mu}$$ and covariance matrix $$\boldsymbol{\Sigma}$$ and working 'backwards' to obtain the above derivation. Let me do one last thing, which is multiply by sides by $$\frac{1}{n}$$ so that we instead have a mean squared error rather than a sum of squared errors:
 
 $$
 \begin{align} \tag{5}
+\frac{1}{n} \text{NLL}(\mathbf{x}; \mathbf{z}) = \log(\sigma_{z}^2) + \frac{\frac{1}{n}||(\mathbf{x} - \mu(\mathbf{z}))||^{2}_{2}}{\sigma_{z}^2}.
+\end{align}
+$$
+
+Typically with autoencoders, the variance term is assumed to be fixed to $$\sigma_{z}^2=1$$ across all dimensions. In other words, for Equation (2) $$\text{diag}(\sigma(\mathbf{z}))_{i} = \sigma_{z}$$ for all $$i$$.  This means that the first term for Equation (5) cancels out ($$\log(1) = 0$$) which yields us the mean squared error (MSE) loss:
+
+$$
+\begin{align} \tag{6}
 \text{NLL}(\mathbf{x})_{\sigma=1} = \frac{1}{n}||(\mathbf{x} - \mu_{\theta}(f_{\theta}(\mathbf{x}))||^{2}_{2}
 \end{align}
 $$
@@ -131,7 +140,7 @@ $$
 This is typically what is written in most autoencoder implementations. Finally, we minimise such a loss over our training set of examples $$\{ \mathbf{x}^{(j)} \}_{j=1}^{m}$$, where the superscript in parentheses $$\mathbf{x}^{(j)}$$ signifies the $$j$$'th training example:
 
 $$
-\begin{align} \tag{6}
+\begin{align} \tag{7}
 \min_{\theta} \mathcal{L} = \mathbb{E}_{\mathbf{x} \sim p_d} \ell(\mathbf{x}) \approx \frac{1}{m} \sum_{j=1}^{m} \text{NLL}(\mathbf{x}^{(j)})
 \end{align}
 $$
@@ -141,7 +150,7 @@ Since we're doing this all in the context of deep learning, the above loss is ap
 <br />
 ## Modelling the variance
 
-Without loss of generality for the case where $$\mathbf{x}$$ and $$\mathbf{z}$$ are vectors, let's consider the scalar case once again:
+Let's consider a univariate Gaussian once again (remembering that the multivariate case is really just a sum over univariate distributions, as illustrated by equation (4)):
 
 $$
 \begin{align}
@@ -209,13 +218,15 @@ gaussian(1e-7, 1, K=1e-10, ylim_max=20, ylim_min=-20)
 <br />
 </div>
 
-In both plots, I have marked the value of $$\sigma$$ that minimises the function, which is shown as an orange vertical bar. This paper [[#ref:vae_yu]](#ref_vae_yu) was an interesting read, and basically states that simplifying the likelihood to squared error is suboptimal, and that, for a fixed MSE the $$\sigma$$ that actually minimises the NLL is $$\sqrt{\text{MSE}}$$. This can be proven with some simple calculus, taking the derivative of the NLL, setting it to zero, and solving for $$\sigma$$. For the first term:
+In both plots, I have marked the value of $$\sigma$$ that minimises the function, which is shown as an orange vertical bar. This paper [[#ref:vae_yu]](#ref_vae_yu) was an interesting read, and basically states that simplifying the likelihood to squared error is suboptimal, and that, for a fixed MSE the $$\sigma$$ that actually minimises the NLL is $$\sqrt{2\text{MSE}}$$ plus a constant term. This can be proven with some simple calculus, taking the derivative of the NLL, setting it to zero, and solving for $$\sigma$$. For the first term:
 
 $$
 \begin{align}
-\frac{\partial \log(2 \pi \sigma^2)}{\partial \sigma} = \frac{\partial \log(2 \pi \sigma^2)}{\partial \ 2 \pi \sigma^2} \cdot \frac{\partial \ 2 \pi \sigma^2}{\partial \sigma^2} \cdot \frac{\partial \sigma^2}{\partial \sigma} = \frac{2}{\sigma}.
+\frac{\partial \frac{1}{2} \log(2 \pi \sigma^2)}{\partial \sigma} = \frac{1}{2} \cdot \frac{\partial \log(2 \pi \sigma^2)}{\partial \ 2 \pi \sigma^2} \cdot \frac{\partial \ 2 \pi \sigma^2}{\partial \sigma^2} \cdot \frac{\partial \sigma^2}{\partial \sigma} = \frac{1}{\sigma},
 \end{align}
 $$
+
+where I have re-written $$\log(\sqrt{2 \pi} \sigma) = \log(\sqrt{2 \pi \sigma^2}) = \log( (2 \pi \sigma^2)^{\frac{1}{2}} ) = \frac{1}{2} \log(2 \pi \sigma^2)$$.
 
 And the second:
 
@@ -225,11 +236,11 @@ $$
 \end{align}
 $$
 
-Summing the two together gives us:
+Summing the two gradient terms together give us:
 
 $$
 \begin{align}
-\frac{\partial NLL}{\partial \sigma} = \frac{2}{\sigma} - \frac{2 \ \text{MSE}}{\sigma^3}.
+\frac{\partial NLL}{\partial \sigma} = \frac{1}{\sigma} - \frac{2 \ \text{MSE}}{\sigma^3}.
 \end{align}
 $$
 
@@ -237,10 +248,10 @@ Setting this expression to zero and solving for $$\sigma$$:
 
 $$
 \begin{align}
-\frac{2}{\sigma} - \frac{2 \ \text{MSE}}{\sigma^3} = 0 \\
-\frac{2}{\sigma} = \frac{2 \text{MSE}}{\sigma^3} \\
-2 \sigma^2 = 2 \text{MSE} \\
-\sigma = \sqrt{\text{MSE}} \ .
+\frac{1}{\sigma} - \frac{2 \ \text{MSE}}{\sigma^3} & = 0 \\
+\frac{1}{\sigma} & = \frac{2 \text{MSE}}{\sigma^3} \\
+\sigma^2 & = 2 \text{MSE} \\
+\sigma & = \sqrt{2 \text{MSE}} \ .
 \end{align}
 $$
 
@@ -248,12 +259,12 @@ Plugging this into Equation (4):
 
 $$
 \begin{align}
-\log(\sigma(\mathbf{z})) + \frac{\frac{1}{n}||(x - \mu(z))||}{\sigma(z)^2} & = \log( \sqrt{\text{MSE}} ) + \frac{\frac{1}{n}||(x - \mu(z))||}{ \sqrt{\text{MSE}}^2 } \\
-& = \log \Big(\sqrt{\frac{1}{n}||(x - \mu(z))||}\Big) + 1,
+\log(\sigma(\mathbf{z})) + \frac{\frac{1}{n}||(\mathbf{x} - \mu(\mathbf{z}))||^{2}_{2}}{\sigma(\mathbf{z})^2} & = \log( \sqrt{2\text{MSE}} ) + \frac{\frac{1}{n}||(\mathbf{x} - \mu(\mathbf{z}))||^{2}_{2}}{ \sqrt{2\text{MSE}}^2 } \\
+& = \log(\sqrt{2 \text{MSE}}) + 0.5,
 \end{align}
 $$
 
-hence, we get the _log root mean squared error_. Why is this interesting? How does it differ from the regular mean squared error? We can gain some insights by computing the gradient. Here I am going to use Sympy which is a symbolic math library which allows one to compute derivatives and pretty print them -- this is great for verifying that your manually-computed derivatives are correct:
+hence, we get the _log root mean squared error_ (well, the log root of twice the MSE). Why is this interesting? How does it differ from the regular mean squared error? We can gain some insights by computing the gradient. Here I am going to use Sympy which is a symbolic math library which allows one to compute derivatives and pretty print them -- this is great for verifying that your manually-computed derivatives are correct:
 
 ```python
 from sympy import *
