@@ -1,9 +1,9 @@
 ---
-title: A statistical introduction to Gaussian and Laplace autoencoders
+title: A somewhat mathematical introduction to Gaussian and Laplace autoencoders
 layout: default_latex
 ---
 
-<h1>A statistical introduction to Gaussian and Laplace autoencoders</h1>
+<h1>A somewhat mathematical introduction to Gaussian and Laplace autoencoders</h1>
 
 ```
 @misc{beckhamc_intro_ae,
