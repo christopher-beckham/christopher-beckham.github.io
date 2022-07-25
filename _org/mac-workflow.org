@@ -1,0 +1,50 @@
+* Towards a more sane Mac OS workflow, and I am hella late
+
+Despite making the transition to Mac OS from Windows as early as 2014, I don't feel like I have made a particularly strong effort to become a 'power user' in the past eight years. By 'power user', I mean the kind of person that tweaks every little setting and configuration file and hotkey so that they have an optimised workflow that works for them. While I certainly regret not delving deeper into this (and I have my reasons), I figured that this is the year that I try and at least make an effort.
+
+Mac OS is pretty decent out of the box. And I certainly would never go back to Windows for my work life and development-related things. However, over time the user experience gradually started to irritate me, and it's hard to describe that in precise detail because I feel as if it's a culmination of many different things of a relatively minor nature, rather than one or two blaring issues that really stick out. For instance, I recall Windows generally having a 'snappier' and more responsive UI, and I found it weird that the OS didn't even ship with an option to let you snap windows to the edges of the screen; that has to be done with a third party app. Sometimes when I installed a new application, Spotlight had a hard time trying to find it, so instead of simply typing =cmd+space <application name>= I had to instead open Finder, navigate to =/Applications= and actually launch the application from there. Ughhhhh. When Apple introduced their new full screen mode, it only let you split the screen with two applications and only on the horizontal axis. I thought that was a little half-assed. This particular issue turned out to not be such a big deal since I eventually installed a decent tiling manager ([[https://github.com/ianyh/Amethyst][Amethyst]]). I'll get back to this later.
+
+Some months ago I went through the mental crusade of trying to identify what would make my user experience a whole lot better. I concluded that the thing I wanted the most for this OS was to have something like Spotlight where you can search *all open applications* so that you could easily switch to them by invoking a hotkey and typing some text. As it stands, Spotlight doesn't have this feature (though it does let you search through other boatloads of crap), and the only 'power user' way to flick through apps is to use mission control with a swipe gesture or use =cmd+tab= (which is basically =alt+tab= on Windows). This feature is so nice that I also have it installed in my web browser, and it's an absolute time-saver when you have so many tabs open:
+
+[[file:/assets/04/waterfox.gif]]
+
+I knew that Linux had such features ([[https://tools.suckless.org/dmenu/][dmenu]], [[https://github.com/davatorium/rofi][rofi]]) and so I was torn between staying on Mac or transitioning to Linux. When I was experimenting with that transition, I decided to do it using a virtual machine (I recommend [[https://www.parallels.com/products/desktop/][Parallels]]) just so that I would have the best of both worlds in front of me; after all, if the virtual machine isn't sluggish then I really see no reason why you would want to go through the hassle of dual booting. For a few weeks I played with an Ubuntu distro with i3 as my window manager and it felt pretty decent, apart from how absolutely painful it was to have to trudge through Stackoverflow for every little confusion I had with every little config file I had to modify. It's basically config files galore, each one having its own esoteric syntax you have to learn and with no GUIs in sight to ease the transition. I also had to deal with the fact that I had to be careful that any keybindings I set up for the guest OS (Linux) did not interfere with the host OS (Mac). Ultimately, I didn't feel super comfortable making the transition to Linux because I am an absolute sucker for Mac's high DPI retina display and everything just looked sort of fuzzy in the VM. Also, if I did go the dual boot route, I didn't want to risk succumbing to this sort of fate (context: a [[https://news.ycombinator.com/item?id=29744419][related thread on Hackernews]]):
+
+#+BEGIN_QUOTE
+Well, if you're very opinionated regarding your setup, trying to force macOS into your ways won't work, macOS is great and very easy to use and gives you zero problems but you have to adapt to it. I've also moved after many years of linux and I could not be happier. I like easy and I like to focus on getting my actual work done, I got tired of spending weeks personalizing stuff, dealing with drivers issues, tuning the trackpad, adjusting applications to work with different dpi screens, etc, etc. For me it was a never ending war and a lot of time wasted.
+#+END_QUOTE
+
+Nota bene to those deeply offended: I am not egging on Linux here. 95% of my work is done remotely through ssh on Linux machines with fancy GPUs. I am just saying that I don't want to (yet) make the transition to using Linux as my desktop environment.
+
+For now, I feel like I have some made some headway with finding something that works for me on Mac. The first is a very awesome tiling window manager called [[https://github.com/koekeishiya/yabai][Yabai]]. Yabai requires [[https://github.com/koekeishiya/yabai/wiki/Disabling-System-Integrity-Protection][some hacks]] in order to leverage all of its features, but it offers really awesome power-user stuff if you combine it with a hotkey daemon like [[https://github.com/koekeishiya/skhd][skhd]]. Some of its features include:
+
+- being able to instantly switch workspaces without the annoying swipe animation (with hotkeys);
+- the ability to switch focus on windows in a workspace;
+- being able to swap the positions of windows in a workspace;
+- being able to resize windows with hotkeys;
+- adding rules to control which windows should be tiled and what should remain floating;
+- the ability to set window opacity;
+- ...and loads more.
+
+=skhd= has allowed me to assign hotkeys to other yabai functions. Here is me switching workspaces with =cmd+alt+<number>= (the number corresponds to the workspace number in mission control):
+
+[[file:/assets/04/workspace.gif]]
+
+#+BEGIN_EXAMPLE
+# focus on a specific workspace
+cmd + alt - 1 : yabai -m space --focus 1
+cmd + alt - 2 : yabai -m space --focus 2
+cmd + alt - 3 : yabai -m space --focus 3
+#+END_EXAMPLE
+
+If you install [[https://github.com/Granitosaurus/choosem][choosem]] and combine it with =skhd=, you can basically get the rofi-style application search that I mentioned earlier. For instance, in my =~/skhdrc= file I have the following:
+
+#+BEGIN_EXAMPLE
+shift + cmd - space : /Users/beckhamc/miniconda3/bin/choosem yabai focus
+#+END_EXAMPLE
+
+(The command =choosem yabai focus= actually makes use of yabai since its API includes a command that lets you get metadata on all of the open windows. That command in particular is =yabai -m query --windows=)
+
+I have this functionality bound to =cmd+shift+space=. (=cmd+space= is still bound to Spotlight, which can still be useful for launching applications.)
+
+[[file:/assets/04/choosem.gif]]
