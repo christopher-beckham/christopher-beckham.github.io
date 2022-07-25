@@ -1,12 +1,12 @@
 ---
-title: Towards a more sane Mac OS workflow, and I am late to the party
+title: Towards a more sane Mac OS user experience, and I am late to the party
 layout: default_latex
 description: My journey in trying to craft a better user experience for myself on Mac OS X.
 ---
 
 <a id="org5e4dbd9"></a>
 
-# Towards a more sane Mac OS workflow, and I am late to the party
+# Towards a more sane Mac OS user experience, and I am late to the party
 
 Despite making the transition to Mac OS from Windows as early as 2014, I don't feel like I have made a particularly strong effort to become a 'power user' in the past eight years. By 'power user', I mean the kind of person that tweaks every little setting and configuration file and hotkey so that they have an optimised workflow that works for them. While I certainly regret not delving deeper into this (and I have my reasons), I figured that this is the year that I try and at least make an effort.
 
@@ -25,11 +25,9 @@ Showing off the Vim Vixen plugin for Firefox. This adds some nice Vim keybinding
 <br />
 </div>
 
-I knew that Linux had such features ([dmenu](https://tools.suckless.org/dmenu/), [rofi](https://github.com/davatorium/rofi)) and so I was torn between staying on Mac or transitioning to Linux. When I was experimenting with that transition, I decided to do it using a virtual machine (I recommend [Parallels](https://www.parallels.com/products/desktop/)) just so that I would have the best of both worlds in front of me; after all, if the virtual machine isn't sluggish then I really see no reason why you would want to go through the hassle of dual booting. For a few weeks I played with an Ubuntu distro with i3 as my window manager and it felt pretty decent, apart from how absolutely painful it was to have to trudge through Stackoverflow for every little confusion I had with every little config file I had to modify. It's basically config files galore, each one having its own esoteric syntax you have to learn and with no GUIs in sight to ease the transition. I also had to deal with the fact that I had to be careful that any keybindings I set up for the guest OS (Linux) did not interfere with the host OS (Mac). Ultimately, I didn't feel super comfortable making the transition to Linux because I am an absolute sucker for Mac's high DPI retina display and everything just looked sort of fuzzy in the VM. Also, if I did go the dual boot route, I didn't want to risk succumbing to this sort of fate (context: a [related thread on Hackernews](https://news.ycombinator.com/item?id=29744419)):
+I knew that Linux had such features ([dmenu](https://tools.suckless.org/dmenu/), [rofi](https://github.com/davatorium/rofi)) and so I was torn between staying on Mac or transitioning to Linux. When I was experimenting with that transition, I decided to do it using a virtual machine (I recommend [Parallels](https://www.parallels.com/products/desktop/)) just so that I would have the best of both worlds in front of me; after all, if the virtual machine isn't sluggish then I really see no reason why you would want to go through the hassle of dual booting. For a few weeks I played with an Ubuntu distro with i3 as my window manager and it felt pretty decent, apart from how absolutely painful it was to have to trudge through Stackoverflow for every little confusion I had with every little config file I had to modify. It's basically config files galore, each one having its own esoteric syntax you have to learn and with no GUIs in sight to ease the transition. I also had to deal with the fact that I had to be careful that any keybindings I set up for the guest OS (Linux) did not interfere with the host OS (Mac). Ultimately, I didn't feel super comfortable making the transition to my virtual Linux OS because the font rendering was so much better on Mac, not to mention the amazing trackpad experience which I didn't want to give up. Also, if I did go the dual boot route, I didn't want to risk succumbing to this sort of fate (context: a [related thread on Hackernews](https://news.ycombinator.com/item?id=29744419)):
 
 > Well, if you're very opinionated regarding your setup, trying to force macOS into your ways won't work, macOS is great and very easy to use and gives you zero problems but you have to adapt to it. I've also moved after many years of linux and I could not be happier. I like easy and I like to focus on getting my actual work done, I got tired of spending weeks personalizing stuff, dealing with drivers issues, tuning the trackpad, adjusting applications to work with different dpi screens, etc, etc. For me it was a never ending war and a lot of time wasted.
-
-Nota bene to those deeply offended: I am not egging on Linux here. 95% of my work is done remotely through ssh on Linux machines with fancy GPUs. I am just saying that I don't want to (yet) make the transition to using Linux as my desktop environment.
 
 For now, I feel like I have some made some headway with finding something that works for me on Mac. The first is a very awesome tiling window manager called [Yabai](https://github.com/koekeishiya/yabai). Yabai requires [some hacks](https://github.com/koekeishiya/yabai/wiki/Disabling-System-Integrity-Protection) in order to leverage all of its features, but it offers really awesome power-user stuff if you combine it with a hotkey daemon like [skhd](https://github.com/koekeishiya/skhd). Some of its features include:
 
