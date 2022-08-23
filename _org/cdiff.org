@@ -1,0 +1,119 @@
+#+TITLE: My notes
+#+LATEX_HEADER: \newcommand{\xx}{\boldsymbol{x}}
+#+LATEX_HEADER: \newcommand{\pt}{p_{\theta}}
+#+LATEX_HEADER: \newcommand{\QQ}{\boldsymbol{Q}}
+#+LATEX_HEADER: \newcommand{\alphabar}{\bar{\alpha}}
+#+LATEX_HEADER: \newcommand{\mt}{\mu_{\theta}}
+#+LATEX_HEADER: \newcommand{\epst}{\epsilon_{\theta}}
+#+LATEX_HEADER: \newcommand{\betatilde}{\tilde{\beta}}
+#+LATEX_HEADER: \newcommand{\deltatilde}{\tilde{\delta}}
+#+LATEX_HEADER: \newcommand{\linspace}{\text{linspace}}
+
+~===~
+title: Conditional diffusion applied to images
+layout: default_latex
+~===~
+
+For this, I will be using the equation numbers from [1]. 
+
+* Unconditional diffusion
+
+Some refresher. The $$t$$-step reverse process is:
+
+\begin{align}
+q(\xx_t|\xx_0) = \mathcal{N}(\xx_t; \sqrt{\alphabar_{t}}\xx_0, (1-\alphabar_{t}) \mathbf{I}) \nonumber 
+\end{align}
+ 
+The reverse process can be formulated as:
+
+\begin{align} 
+\pt(\xx_{t-1}|\xx_t) = \mathcal{N}(\xx_{t-1}; \mt(\xx_t, t), \betatilde_t \mathbf{I} ) \nonumber 
+\end{align}
+
+where:
+- $$\betatilde = \frac{1-\alphabar_{t-1}}{1 - \alphabar_{t}} \beta_t$$
+- $$\mt(\xx_t, t) = \frac{1}{\sqrt{\alpha_t}} \xx_t - \frac{\beta_t}{\sqrt{\alpha_t} \sqrt{1-\alphabar_{t}}}\epst(\xx_{t}, t)$$
+
+* The conditional variant
+
+The conditional variant is a bit math heavy, but a formulation is theoretically derived that contains a few more math symbols (that is a bit of an understatement). There is this notion of $y$ being a 'noisy' version of $x$ instead of how we may think of $y$ in the traditional sense, i.e. a discrete and not noisy token such as a label. I will return to this shortly but for now let's just ignore this distinction.
+
+Instead of deriving the one-step (conditional) forward first $$q(\xx_t | \xx_{t-1}, y)$$ and then deriving  $$q(\xx_t | \xx_{0}, y)$$ , the authors take the opposite approach and derive first $$q(\xx_t | \xx_{0}, y)$$ 
+
+\begin{align}
+q(\xx_t | \xx_0, y) = \mathcal{N}(\xx_t; (1-m_t) \sqrt{\alphabar_{t}} \xx_0 + m_t \sqrt{\alphabar_{t}}y, \delta_{t} \mathbf{I}), \nonumber 
+\end{align}
+
+where the mean is characterised by a convex combination between the two terms, with $m_t \in [0,1]$ being the interpolation coefficient. Essentially, as we run the forward diffusion, the mean progressively moves towards a scaled $$y$$ under some variance schedule $$\delta_t$$. Because of the interpolation, we can see that $y$ must be of the same dimensionality as $x$ as well. The prior
+ distribution for some $y$ can be expressed as:
+
+\begin{align}
+p(\xx_T | y) = \mathcal{N}(\xx_T; \sqrt{\alphabar_T} y, \delta_{T} \mathbf{I}), \nonumber
+\end{align}
+
+so that $y$ essentially parameterises the mean of the conditional prior $p(\xx_T|y)$ up to the scaling factor $\sqrt{\alphabar_T}$. 
+
+From which they show that under a particular derivation for $$\delta_t$$, recovers the original diffusion:
+
+\begin{align}
+\delta_t = (1 - \alphabar_{t}) - m_t^2 \alphabar_t \nonumber 
+\end{align}
+
+hence this is a conditional generalisation of forward diffusion. $$\delta_t$$ here is analogous to the $\beta_t$ in the unconditional version.
+
+After some crazy long derivations, the authors derive the reverse process. This takes in a similarly convenient form, which is basically:
+
+\begin{align}
+\pt(\xx_{t-1}|\xx_{t},y) = \mathcal{N}(\xx_{t-1}; \mt(\xx_t, y, t),  \deltatilde_{t} \mathbf{I} ), \nonumber
+\end{align} 
+
+where:
+- $$\deltatilde_t = \frac{\delta_{t|t-1} \cdot \delta_t}{\delta_{t-1}}$$ (analogous to $$\betatilde_t$$ in the unconditional version of the learned reverse process)
+- $\delta_{t|t-1} = \delta_t - \Big( \frac{1 - m_t}{1 - m_{t-1}} \Big)^{2} \alpha_t \delta_{t-1}$ (this is also the variance term of $q(\xx_t | \xx_{t-1}, y)$, so its analogue in the unconditional $q(\xx_t | \xx_{t-1})$ would be $\beta$ )
+
+* Reproduction
+
+Since I am a vision person and this paper validated their approach on speech datasets, I decided to implement the paper from scratch but using the HuggingFace diffusion as a starter. This implements some pretty nice code to get started with Gaussian diffusion models.
+
+I had issues with trying to get this to work on images. The paper didn't go into details about how the 'noisy' $y$ is constructed. Sure, it's an interpolation but there are no finer details on it. Initially I tried some strategies:
+
+- (1) where $y$ is a convex combination and some uniform is used, 
+- (2) learn an embedding for $y$. Essentially, let $y'$ denote the *actual label* of the image, and let $y = \text{embed}_{\theta}(y')$ be a learnable embedding layer that maps a label to the same dimensions as the original image, whose parameters will also be updated in unison with those from the U-Net. This formulation therefore requires a modification to Algorithms 1 and 2 in the original paper.
+
+(1) but found results vary quite a bit depending on $y$. If it is too close to the original image then you recover it, if it's too high then you either get bad looking images or you get the same images every time (as if the noise does not matter). For (2) I just ended up getting mode dropping in general.
+
+From that point forward I decided to go with (2). Hp tuning is awkward because $\delta$ is a function of both $\alpha$ and $m$.  What I found solved it was to carefully consider the schedule for $m$. The original paper set $m$ to:
+
+\begin{align}
+m_t = \sqrt{ (1-\alphabar_{t}) / \sqrt{\alphabar_t}}  \nonumber 
+\end{align} 
+
+and remark that it gives $m_0 = 0$ and $m_T \approx 1$, but this only holds for a specific parameterisation of $\beta_t$. in particular the two choices of $\beta$ that were chosen for the paper:
+
+- Base CDiffuSE: $\beta_t \in [1 \times 10^{-4}, 0.035]$ 
+- Large CDiffuSE: $\beta_t \in [1 \times 10^{-4}, 0.0095]$  
+
+Of course, one could enforce $m$ to be within this range by setting $m$ to be something like $\linspace(0, 1, T)$, but I found that changing this did not make a difference when it came to getting my experiments working.
+
+Setting $\mathbf{m} = \text{linspace}(0, \tau, T)$ seemed to resolve this, for some 'reasonable' values. It's like setting a maximum stops the model from an over-reliance on $y$ to generate images. If $\tau$ is too small however, it will be difficult for the model to generate conditionally. If we do so, sampling from the prior becomes the following (since $m_T$ is not guaranteed to be 1 anymore):
+
+\begin{align}
+p(\xx_T | y) = \mathcal{N}(\xx_T; m_T \sqrt{\alphabar_T} y, \delta_{T} \mathbf{I}), \nonumber \tag{A1} 
+\end{align}
+
+** Trying different values of $\tau$ 
+
+We try different values of $\tau$ . Each frame in the animation is a separate reverse diffusion process but with the same $y$. Here we want to qualitatively determine what kind of sample diversity we get as we increase $\tau$. 
+
+| m=0.3                | m=0.5                | m=0.7                |
+|----------------------+----------------------+----------------------|
+| [[../assets/05/0.3.gif]] | [[../assets/05/0.5.gif]] | [[../assets/05/0.7.gif]] |
+
+| m = 0.8              | m = 0.9              | m = 1.0              |
+|----------------------+----------------------+----------------------|
+| [[../assets/05/0.8.gif]] | [[../assets/05/0.9.gif]] | [[../assets/05/1.0.gif]] |
+
+
+* References
+
+- [1] Lu, Y. J., Wang, Z. Q., Watanabe, S., Richard, A., Yu, C., & Tsao, Y. (2022, May). Conditional diffusion probabilistic model for speech enhancement. In ICASSP 2022-2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) (pp. 7402-7406). IEEE.
