@@ -30,6 +30,7 @@ url: "http://christopher-beckham.github.io" # the base hostname & protocol for y
 twitter_username: chris_j_beckham
 github_username:  christopher-beckham
 markdown: kramdown
+future: true
 
 # Build settings
 theme: minima
