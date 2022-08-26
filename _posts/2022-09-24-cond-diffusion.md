@@ -30,12 +30,14 @@ If you found this useful and wish to cite it, you can use this corresponding Bib
 }
 ```
 
+The Github repository for this code can be found [here](https://github.com/christopher-beckham/annotated-conditional-diffusion).
+
 ## Table of contents
 
 1.  [Unconditional diffusion](#orga3d3fe3)
 2.  [The conditional variant](#orgcac7076)
 3.  [Reproduction](#orgaab42cb)
-    1.  [Trying different values of $\tau$](#orgee986fc)
+    1.  [Examining different values of $$\tau$$](#orgee986fc)
     2.  [Reverse diffusion](#org9b91845)
 	3.  [Viz learned](#viz_learned)
 4.  [References](#references)
@@ -44,7 +46,7 @@ If you found this useful and wish to cite it, you can use this corresponding Bib
 
 ## Unconditional diffusion
 
-Let us start with a quick refresher (see [1] for more details) for a typical (unconditional) diffusion model. The $$t$$-step forward process can conveniently be derived to give us the following:
+Let us start with a quick refresher for a typical (unconditional) diffusion model (see [1] for more details). The $$t$$-step forward process can conveniently be derived to give us the following:
 
 \begin{align} \label{eq:uncond_fwd_t_step}
 q(\xx_t|\xx_0) = \mathcal{N}(\xx_t; \sqrt{\alphabar_{t}}\xx_0, (1-\alphabar_{t}) \mathbf{I})
@@ -135,6 +137,8 @@ so it seems like when $$\tau$$ is too small
 then the magnitude of the mean in $$\xx_T \sim \pt(\xx_T|\yy)$$ (which is a function of $$\yy$$) becomes diminished. When $$\tau$$ is too large, I hypothesis that maybe this is because the variance schedule becomes too large (see Figure 1).
 
 <a id="orgee986fc"></a>
+
+## Examining different values of $$\tau$$
 
 <table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
