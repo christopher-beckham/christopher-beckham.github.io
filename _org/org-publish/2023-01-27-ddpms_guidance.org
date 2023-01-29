@@ -1,0 +1,184 @@
+#+OPTIONS: toc:nil
+#+LATEX_HEADER: \newcommand{\xx}{\boldsymbol{x}}
+#+LATEX_HEADER: \newcommand{\yy}{y}
+#+LATEX_HEADER: \newcommand{\pt}{p_{\theta}}
+#+LATEX_HEADER: \newcommand{\pphi}{p_{\phi}}
+#+LATEX_HEADER: \newcommand{\st}{s_{\theta}}
+#+LATEX_HEADER: \newcommand{\epst}{\epsilon_{\theta}}
+#+LATEX_HEADER: \newcommand{\alphabar}{\bar{\alpha}}
+#+LATEX_HEADER: \newcommand{\puncond}{p_{\text{uncond}}}
+
+#+BEGIN_EXPORT html
+---
+title: Techniques for label conditioning in Gaussian denoising diffusion models
+layout: default_latex
+---
+
+<h1>Techniques for label conditioning in Gaussian DDPMs</h1>
+
+<div hidden>
+$$\newcommand{\xx}{\boldsymbol{x}}$$
+$$\newcommand{\yy}{y}$$
+$$\newcommand{\pt}{p_{\theta}}$$
+$$\newcommand{\pphi}{p_{\phi}}$$
+$$\newcommand{\st}{s_{\theta}}$$
+$$\newcommand{\epst}{\epsilon_{\theta}}$$
+$$\newcommand{\alphabar}{\bar{\alpha}}$$
+$$\newcommand{\puncond}{p_{\text{uncond}}}$$
+</div>
+#+END_EXPORT
+
+#+TOC: headlines 1
+
+#+BEGIN_EXPORT html
+<div id="images">
+<figure>
+<img class="figg" src="/assets/07/header.png" alt="" />
+</figure>
+</div>
+#+END_EXPORT
+
+# See here for more information:
+# https://orgmode.org/worg/org-tutorials/org-jekyll.html
+# https://orgmode.org/manual/HTML-specific-export-settings.html
+
+In this very short blog post, I will be presenting my derivations of two widely used forms of label conditioning for denoising diffusion probabilistic models (DDPMs) =ho2020denoising=. I found that other sources of information I consulted didn't quite get the derivations right or were confusing, so I'm presenting my own reference here that I hope will serve myself and others well.
+
+* Preliminaries
+
+The evidence lower bound can be written as:
+
+\begin{align} \label{eq:elbo}
+\log p(\xx) & \geq \text{ELBO}(\xx) \\
+& = \mathbb{E}_{q(\xx_0, \dots, \xx_T)} \Big[ \underbrace{-\log \frac{p(\xx_T)}{q(\xx_T|\xx_0)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t)}{q(\xx_{t-1}|\xx_t, \xx_0)}}_{L_t} - \underbrace{\log \pt(\xx_0|\xx_1)}_{L_0} \Big], \tag{0}
+\end{align}
+
+Using typical DDPM notation, $\xx_0 \sim q(\xx_0)$ is the real data, and $q(\xx_t|\xx_{t+1})$ for $t \in \{1, \dots, T\}$ defines progressively noisier distributions, and $\pt$ parameterises a neural net reverse this process. In practice, when such distributions are Gaussian, each of the $T$ KL terms in the ELBO can be simplified to the following noise prediction task, where we train a neural network $\epsilon_{\theta}(\xx_t, t)$ to predict the noise from $\xx_t \sim q(\xx_t|\xx_0)$:
+
+\begin{align}
+\mathcal{L}_{\text{simple}}(t) = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big]
+\end{align}
+
+These derivations hinge on one important equation that relates diffusion models to score matching =song2020score=. I take the following from Lilian Weng's blog:
+
+\begin{align}
+\st(\xx_t, t) \approx \nabla_{\xx_t} \log q(\xx_t) = -\frac{\epst(\xx_t, t)}{\sqrt{1 - \alphabar_{t}}} \tag{1}
+\end{align}
+
+The question we would like to answer in the following sections is: given an unconditional diffusion model $\pt(\xx)$, how can we easily derive a /conditional/ variant $\pt(\xx|\yy)$? 
+
+* Classifier-based guidance
+
+Through Bayes' rule we know that:
+
+\begin{align}
+q(\xx_t|y) = \frac{q(\xx_t, y)}{q(y)} = \frac{q(y|\xx_t)q(\xx_t)}{q(y)}
+\end{align}
+
+Taking the score $\nabla_{\xx_t} \log q(\xx_t|y)$, we get:
+
+\begin{align}
+\nabla_{\xx_t} \log q(\xx_t|y) & = \nabla_{\xx_t} \log q(y|\xx_t) + \nabla_{\xx_t} \log q(\xx_t) - \underbrace{\nabla_{\xx_t} \log q(\yy)}_{= 0} \\
+& \approx \nabla_{\xx_t} \log q(\yy|\xx_t)  - \frac{\epst(\xx_t, t)}{\sqrt{1-\alphabar}},
+\end{align}
+
+where in the last line we make clear the connection between the score function and the noise predictor $\epst$ =weng2021diffusion=. If we also do the same trick to the left-hand side and multiply by $-\sqrt{1-\alphabar_t}$ we get:
+
+\begin{align}
+-\sqrt{1-\alphabar_t} \cdot (-1 / \sqrt{1-\alphabar_t})\epst(\xx_t, \yy, t) & = \Big( \nabla_{\xx_t} \log q(\yy|\xx_t)  - \frac{\epst(\xx_t, t)}{\sqrt{1-\alphabar}} \Big) \cdot -\sqrt{1-\alphabar_t} \\
+\implies \ \epst(\xx_t, y, t) & = \epst(\xx_t, t) - \sqrt{1-\alphabar_t} \nabla_{\xx_t} \log q(\yy|\xx_t) \\
+& \approx \epst(\xx_t, t) - \sqrt{1-\alphabar_t} \nabla_{\xx_t} \log \pphi(\yy|\xx_t; t).
+\end{align}
+
+Here we approximate the ground truth classifier $q(\yy|\xx_t)$ with our own classifier $\pphi(\yy|\xx_t; t)$. This classifier /should/ be trained on the same distribution of images from the forward process $q(\xx_0, \dots, \xx_T)$ so that appropriate gradients are obtained during sampling. Note that I have also conditioned on $t$ as well, which I suspect probably makes it easier for the classifier to predict $\yy$ from whatever noisy image it receives.
+
+In practice, we can also define the weighted version as follows, which allows us to balance between (conditional) sample quality and sample diversity:
+
+\begin{align} \label{eq:cg_supp}
+    \bar{\epst}(\xx_t, t, y; w) & := \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \nabla_{\xx_t} \log \pphi(y|\xx_t; t), \tag{2}
+\end{align}
+
+Even though this form of label conditioning requires an external classifier, it is quite a simple and principled derivation, and therefore I like it. Essentially, from an unconditional diffusion model $\pt(\xx)$ we are inducing a /conditional/ variant at generation time, which we can call $p_{\theta,\phi}(\xx|\yy) \propto \pphi(\yy|\xx)\pt(\xx)$. This distribution can be sampled from by replacing the unconditional noise predictor in your sampling method with $\bar{\epst}(\xx_t, t, y; w)$.
+
+I think one interesting aspect of this formulation is that, since the induced conditional model is a function of both the unconditional model $\pt(\xx)$ and the classifier $\pphi(\yy|\xx)$, the entire generative model could be improved by switching out either component in isolation with an updated version. This could be useful if:
+
+- it is too expensive to re-train the diffusion model at regular intervals. Since classifiers are a bit faster to train, one strategy could be to update (retrain) the classifier at more frequent intervals than the diffusion model.
+- One wishes to leverage a pre-trained + frozen unconditional diffusion model for transfer learning with their own prescribed classifier.
+
+* Classifier-free guidance
+
+The idea behind classifier-free guidance is that one could simply instead condition on $\yy$ in the reverse process, i.e. use $\pt(\xx_{t-1}|\xx_{t}, y)$ instead of $\pt(\xx_{t-1}|\xx_t)$. In our case, this would be conditioning on $\yy$ for the noise predictor $\epst(\xx_t, y, t)$. However, the authors also propose learning the unconditional version at the same time for the same model, which means that during training $\yy$ random gets dropped with some probability $\puncond$. When the label does get dropped, it simply gets replaced with some null token, so we can think of $\epst(\xx_t, t) = \epst(\xx_t, y = \emptyset, t)$. (In practice, =dhariwal2021diffusion= found that a $\puncond$ of 0.1 or 0.2 works well.)
+
+The reason for this algorithm is so that a variant of Equation (2) can be derived without depending on an external classifier. From Bayes' rule, we know that:
+ 
+\begin{align}
+\pt(\yy|\xx_t) = \frac{\pt(\yy,\xx_t)}{\pt(\xx_t)} = \frac{\pt(\xx_t|y)p(\yy)}{\pt(\xx_t)},
+\end{align}
+
+and that therefore the score $\nabla_{\xx_t} \log \pt(\yy|\xx_t)$ is:
+
+\begin{align}
+    \nabla_{\xx_t} \log \pt(y|\xx_t)= \nabla_{\xx_t} \log \pt(\xx_t|y) + \underbrace{\nabla_{\xx_t} \log p(\yy)}_{= 0} - \nabla_{\xx_t} \log \pt(\xx_t).
+\end{align}
+
+We simply plug this into Equation (2) to remove the dependence on $\pt(y|\xx_t)$:
+
+\begin{align}
+    \bar{\epst}(\xx_t, y, t; w) & := \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \nabla_{\xx_t} \log \pt(y|\xx_t) \\
+    & = \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \Big[ \nabla_{\xx_t} \log \pt(\xx_t|y) - \nabla_{\xx_t} \log \pt(\xx_t) \Big] \\
+    & = \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \Big[ \frac{-1}{\sqrt{1-\bar{\alpha}_t}} \epst(\xx_t, y, t) - \frac{-1}{\sqrt{1-\bar{\alpha}_t}} \epst(\xx_t, t) \Big] \\
+    & = \epst(\xx_t, t) + w \epst(\xx_t, y, t) - w \epst(\xx_t, t) \\
+    & = \underbrace{\epst(\xx_t, t)}_{\approx \nabla_{\xx_t} \log p(\xx)} + w \Big( \underbrace{\epst(\xx_t, y, t) - \epst(\xx_t, t)}_{\approx \nabla_{\xx_t} \log p(\yy|\xx)} \Big). \tag{3}
+\end{align}
+
+From Equation (3) we can see that the term being multiplied by $w$ is (roughly) the score induced by the /implicit/ classifier that defined by the diffusion model itself.
+
+One potential benefit from this formulation from the fact that the implicit classifier and unconditional model share the same set of weights $\theta$. If we assume that the knowledge about the unconditional model in $\theta$ can 'transfer' over to the conditional part, then this could give a conditional model that is more reliable than the classifier-based version.
+
+* Conditional ELBO
+
+The previous two methods involve turning an unconditional diffusion model into a conditional one by either leveraging an explicit classifier (classifier guidance) or deriving an implicit one (classifier-free guidance). For the classifier-guided variant, the new conditional model can be written as:
+
+\begin{align}
+p_{\theta,\phi}(\xx|\yy; w) & \propto \underbrace{\pphi(\yy|\xx)^{w}}_{\text{explicit}} \pt(\xx).
+\end{align}
+
+For classifier-free, this classifier is /implicit/, and the balance between the two following terms isn't just via $w$ at generation time but also through the training hyperparameter $\puncond$:
+
+\begin{align}
+\pt(\xx|\yy; w) & \propto \underbrace{\pt(\yy|\xx)^{w}}_{\text{implicit}} \pt(\xx).
+\end{align}
+
+When we compare both formulations in this manner, we might also ask ourselves, what's stopping us from just training a conditional model $\pt(\xx|\yy)$ directly, rather than through the product of a classifier and an unconditional model? This is certainly possible, via the /conditional ELBO/. This would correspond to taking Equation (0) and adding $\yy$ to each conditional distribution, as well as converting the prior $p(\xx_T)$ to a (possibly learned) conditional prior $\pt(\xx_T|\yy)$:
+
+\begin{align}
+\log p(\xx|\yy) & \geq \text{ELBO}(\xx, \yy) \\
+& = \mathbb{E}_{q(\xx_0, \dots, \xx_T, \yy)} \Big[ \underbrace{-\log \frac{\pt(\xx_T|\yy)}{q(\xx_T|\xx_0,\yy)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t,\yy)}{q(\xx_{t-1}|\xx_t, \xx_0, \yy)}}_{L_t} \\
+& - \underbrace{\log \pt(\xx_0|\xx_1, \yy)}_{L_0} \Big], \tag{4}
+\end{align}
+
+To me, this is the most theoretically direct way to derive a conditional diffusion model. In fact, this has already been used in =lu2022conditional= for speech diffusion! Oddly enough, the conditional ELBO doesn't appear to be commonly used in models I've seen (at least at the time of writing this). Conversely, in the variational autoencoder literature this is how almost all conditional variants are derived, and I think that is ironic because diffusion models are just multi-latent generalisations of VAEs which learn $T$ latent codes instead (with the added constraint that the dimensionality of those codes are the same as the input dimensionality). Perhaps this is for a good reason. Perhaps what makes this a bit more difficult to think about is how the $\yy$ is meant to interact with $\xx_{t-1}$ for the conditional $q(\xx_{t}|\xx_{t-1},\yy)$. For more details about this kind of model, I highly recommend you read [[https://beckham.nz/2022/09/24/cond-diffusion.html][my other post]] where I talk about =lu2022conditional= and implement a proof-of-concept that also works on discrete labels (through MNIST). I also show that one of the hyperparameters used in the training of this model also acts like a sort of knob that allows one to control between sample quality and diversity.
+
+* Conclusion
+
+I will summarise everything with some key bullet points:
+- Classifier-based / classifer-free guidance allow us to imbue unconditional diffusion models with the ability to condition on a label.
+- Classifier-based guidance requires an external classifier, but decomposing the model into two modules may be beneficial from the point of view of retraining or fine-tuning on new data.
+- Classifier-free guidance does not require an external classifier, but requires an extra nuisance hyperparameter $\puncond$ during training.
+- A more theoretically direct approach to conditioning on labels is to derive a Gaussian DDPM via the conditional ELBO (Equation (4)), but would require some extra derivations and model assumptions to be made. A cond. ELBO-based approach is used in =lu2022conditional=.
+- All three variants allow for weighting, e.g. Equations (2) and (3), as well as my other blog post.
+
+* References
+
+- =ho2020denoising= Ho, J., Jain, A., & Abbeel, P. (2020). Denoising diffusion
+  probabilistic models. Advances in Neural Information Processing
+  Systems, 33(), 6840–6851.
+- =song2020score= Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., & Poole, B. (2020). Score-based generative modeling through stochastic differential equations. arXiv preprint arXiv:2011.13456, (), .
+- =classifierfree= Ho, J., & Salimans, T. (2022). Classifier-free diffusion
+  guidance. arXiv preprint arXiv:2207.12598, (), .
+- =dhariwal2021diffusion= Dhariwal, P., & Nichol, A. (2021). Diffusion models beat GANs on image synthesis. Advances in Neural Information Processing Systems, 34(), 8780–8794.
+- =lu2022conditional= Lu, Y., Wang, Z., Watanabe, S., Richard, A., Yu, C., & Tsao, Y. (2022). Conditional diffusion probabilistic model for speech
+  enhancement. In , ICASSP 2022-2022 IEEE International Conference on
+  Acoustics, Speech and Signal Processing (ICASSP) (pp. 7402–7406).
+- =weng2021diffusion= Weng, L. (2021). What are diffusion models? lilianweng.github.io, (), .
+- =sohn2015learning= Sohn, K., Lee, H., & Yan, X. (2015). Learning structured output representation using deep conditional generative models. Advances in neural information processing systems, 28(), .
