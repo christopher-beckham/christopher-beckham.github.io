@@ -236,7 +236,7 @@ To me, this is the most theoretically rigorous way to derive a conditional diffu
 </p>
 
 <p>
-For more details about this kind of model, I highly recommend you read <a href="file:///2022/09/24/cond-diffusion.html">my other post</a> where I talk about <code>lu2022conditional</code> and implement a proof-of-concept that also works on discrete labels (through MNIST). I also show that one of the hyperparameters used in the training of this model also acts like a sort of knob that allows one to control between sample quality and diversity.
+For more details about this kind of model, I highly recommend you read my <a href="https://beckham.nz/2022/09/24/cond-diffusion.html">other post</a> where I talk about <code>lu2022conditional</code> and implement a proof-of-concept that also works on discrete labels (through MNIST). I also show that one of the hyperparameters used in the training of this model also acts like a sort of knob that allows one to control between sample quality and diversity.
 </p>
 </div>
 </div>
@@ -251,7 +251,7 @@ I will summarise everything with some key bullet points:
 <li>Classifier-based / classifer-free guidance allow us to imbue unconditional diffusion models with the ability to condition on a label.</li>
 <li>Classifier-based guidance requires an external classifier, but decomposing the model into two modules may be beneficial from the point of view of retraining or fine-tuning on new data.</li>
 <li>Classifier-free guidance does not require an external classifier, but requires an extra hyperparameter \(\puncond\) during training. It isn't clear to me how this influences \(w\) because it's not used at all during generation time.</li>
-<li>A more theoretically direct approach to conditioning on labels is to derive a Gaussian DDPM via the conditional ELBO (Equation (4)), but would require some extra derivations and model assumptions to be made. A conditional ELBO-based approach is used in <code>lu2022conditional</code>.</li>
+<li>A more theoretically direct approach to conditioning on labels is to derive a Gaussian DDPM via the conditional ELBO (Equation (4)), but would require some extra derivations and model assumptions to be made. A conditional ELBO-based approach is used in <code>lu2022conditional</code>, and I speak about it <a href="https://beckham.nz/2022/09/24/cond-diffusion.html">here</a>.</li>
 <li>All three variants allow for weighting trading off between sample quality and diversity.</li>
 </ul>
 </div>

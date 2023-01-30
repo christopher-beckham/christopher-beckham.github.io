@@ -181,7 +181,7 @@ When we compare both formulations in this manner, we might also ask ourselves, w
 
 To me, this is the most theoretically rigorous way to derive a conditional diffusion model. (In fact, this has already been used in =lu2022conditional= for speech diffusion!) Oddly enough, this doesn't appear to be the way that labelling is done in practice. Ironically, in the variational autoencoder literature this is how almost all conditional variants are derived, and diffusion models are just multi-latent generalisations of VAEs which learn $T$ latent codes instead (with the added constraint that the dimensionality of those codes are the same as the input dimensionality). I suspect this is probably because, unlike in the case of VAEs, one has to think carefully about how $\yy$ can be conditioned on in the forward process, especially if $\yy$ is not the same dimension as $\xx$.
 
-For more details about this kind of model, I highly recommend you read [[/2022/09/24/cond-diffusion.html][my other post]] where I talk about =lu2022conditional= and implement a proof-of-concept that also works on discrete labels (through MNIST). I also show that one of the hyperparameters used in the training of this model also acts like a sort of knob that allows one to control between sample quality and diversity.
+For more details about this kind of model, I highly recommend you read my [[https://beckham.nz/2022/09/24/cond-diffusion.html][other post]] where I talk about =lu2022conditional= and implement a proof-of-concept that also works on discrete labels (through MNIST). I also show that one of the hyperparameters used in the training of this model also acts like a sort of knob that allows one to control between sample quality and diversity.
 
 * Conclusion
 
@@ -189,7 +189,7 @@ I will summarise everything with some key bullet points:
 - Classifier-based / classifer-free guidance allow us to imbue unconditional diffusion models with the ability to condition on a label.
 - Classifier-based guidance requires an external classifier, but decomposing the model into two modules may be beneficial from the point of view of retraining or fine-tuning on new data.
 - Classifier-free guidance does not require an external classifier, but requires an extra hyperparameter $\puncond$ during training. It isn't clear to me how this influences $w$ because it's not used at all during generation time.
-- A more theoretically direct approach to conditioning on labels is to derive a Gaussian DDPM via the conditional ELBO (Equation (4)), but would require some extra derivations and model assumptions to be made. A conditional ELBO-based approach is used in =lu2022conditional=.
+- A more theoretically direct approach to conditioning on labels is to derive a Gaussian DDPM via the conditional ELBO (Equation (4)), but would require some extra derivations and model assumptions to be made. A conditional ELBO-based approach is used in =lu2022conditional=, and I speak about it [[https://beckham.nz/2022/09/24/cond-diffusion.html][here]].
 - All three variants allow for weighting trading off between sample quality and diversity.
 
 * References
