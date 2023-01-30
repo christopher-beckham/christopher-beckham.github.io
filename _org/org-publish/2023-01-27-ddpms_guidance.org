@@ -52,30 +52,30 @@ DDPMs can be derived by first starting off with the evidence lower bound, which 
 
 \begin{align} \label{eq:elbo}
 \log p(\xx) & \geq \text{ELBO}(\xx) \\
-& = \mathbb{E}_{q(\xx_0, \dots, \xx_T)} \Big[ \underbrace{-\log \frac{p(\xx_T)}{q(\xx_T|\xx_0)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t)}{q(\xx_{t-1}|\xx_t, \xx_0)}}_{L_t} - \underbrace{\log \pt(\xx_0|\xx_1)}_{L_0} \Big], \tag{0}
+& = \mathbb{E}_{q(\xx_0, \dots, \xx_T)} \Big[ \underbrace{-\log \frac{p(\xx_T)}{q(\xx_T|\xx_0)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t)}{q(\xx_{t-1}|\xx_t, \xx_0)}}_{L_t} - \underbrace{\log \pt(\xx_0|\xx_1)}_{L_0} \Big. \tag{0}
 \end{align}
 
 Using typical DDPM notation, $\xx_0 \sim q(\xx_0)$ is the real data, and $q(\xx_t|\xx_{t+1})$ for $t \in \{1, \dots, T\}$ defines progressively noisier distributions (dictated by some noising schedule $\beta_t$), and $\pt(\xx_{t-1}|\xx_t)$ parameterises a neural net which is trained to reverse this process. In practice, $\pt$ is re-parameterised such that it in turn is a function of a noise predictor $\epst(\xx_t, t)$ which is trained to predict only the noise in the image that is generated via $\xx_t \sim q(\xx_t|\xx_0)$:
 
 \begin{align}
-\pt(\xx_{t-1}|\xx_t) = \mathcal{N}(\xx_{t-1}; \frac{1}{\sqrt{\alpha_t}}\Big( \xx_t - \frac{1-\alpha_t}{\sqrt{1-\alphabar_t}} \epst(\xx_t, t)\Big), \sigma(\xx_t, t))
+\pt(\xx_{t-1}|\xx_t) = \mathcal{N}(\xx_{t-1}; \frac{1}{\sqrt{\alpha_t}}\Big( \xx_t - \frac{1-\alpha_t}{\sqrt{1-\alphabar_t}} \epst(\xx_t, t)\Big), \sigma(\xx_t, t)).
 \end{align}
 
-As a further simplification, each of the $T$ KL terms in the ELBO can be simplified to the following noise prediction task.
+As a further simplification, each of the $T$ KL terms in the ELBO can be simplified to the following noise prediction task:
 
 \begin{align}
-\mathcal{L}(t)  = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \frac{\beta_t^2}{2\sigma_t^2 \alpha_t(1-\alphabar_t)} \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big],
+\mathcal{L}(t)  = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \frac{\beta_t^2}{2\sigma_t^2 \alpha_t(1-\alphabar_t)} \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big].
 \end{align}
 
 In practice, a biased version of the loss is used which removes the weighting term inside the square brackets. This has the effect of upweighting the loss in favour of noiser images (i.e. $\xx_t$ for large $t$): 
 
 \begin{align}
-\mathcal{L}_{\text{simple}}(t) = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big]
+\mathcal{L}_{\text{simple}}(t) = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big].
 \end{align}
 
 The following derivations hinge on one important equation that relates diffusion models to score matching =song2020score=. I take the following from Lilian Weng's blog =weng2021diffusion=:
 \begin{align}
-\st(\xx_t, t) \approx \nabla_{\xx_t} \log q(\xx_t) = -\frac{\epst(\xx_t, t)}{\sqrt{1 - \alphabar_{t}}} \tag{1}
+\st(\xx_t, t) \approx \nabla_{\xx_t} \log q(\xx_t) = -\frac{\epst(\xx_t, t)}{\sqrt{1 - \alphabar_{t}}}. \tag{1}
 \end{align}
 
 The question we would like to answer in the following sections is: given an unconditional diffusion model $\pt(\xx)$, how can we easily derive a /conditional/ variant $\pt(\xx|\yy)$? 
@@ -94,7 +94,7 @@ The question we would like to answer in the following sections is: given an unco
 Through Bayes' rule we know that:
 
 \begin{align}
-q(\xx_t|y) = \frac{q(\xx_t, y)}{q(y)} = \frac{q(y|\xx_t)q(\xx_t)}{q(y)}
+q(\xx_t|y) = \frac{q(\xx_t, y)}{q(y)} = \frac{q(y|\xx_t)q(\xx_t)}{q(y)}.
 \end{align}
 
 Taking the score $\nabla_{\xx_t} \log q(\xx_t|y)$, we get:
@@ -117,7 +117,7 @@ Here we approximate the ground truth classifier $q(\yy|\xx_t)$ with our own clas
 In practice, we can also define the weighted version as follows, which allows us to balance between (conditional) sample quality and sample diversity:
 
 \begin{align} \label{eq:cg_supp}
-    \bar{\epst}(\xx_t, t, y; w) & := \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \nabla_{\xx_t} \log \pphi(y|\xx_t; t), \tag{2}
+    \bar{\epst}(\xx_t, t, y; w) & := \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \nabla_{\xx_t} \log \pphi(y|\xx_t; t). \tag{2}
 \end{align}
 
 Even though this form of label conditioning requires an external classifier, it is quite a simple and principled derivation, and therefore I like it. Essentially, from an unconditional diffusion model $\pt(\xx)$ we are inducing a /conditional/ variant at generation time, which we can call $p_{\theta,\phi}(\xx|\yy) \propto \pphi(\yy|\xx)\pt(\xx)$. This distribution can be sampled from by replacing the unconditional noise predictor in your sampling method with $\bar{\epst}(\xx_t, t, y; w)$.
@@ -176,7 +176,7 @@ When we compare both formulations in this manner, we might also ask ourselves, w
 \begin{align}
 \log p(\xx|\yy) & \geq \text{ELBO}(\xx, \yy) \\
 & = \mathbb{E}_{q(\xx_0, \dots, \xx_T, \yy)} \Big[ \underbrace{-\log \frac{\pt(\xx_T|\yy)}{q(\xx_T|\xx_0,\yy)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t,\yy)}{q(\xx_{t-1}|\xx_t, \xx_0, \yy)}}_{L_t} \\
-& - \underbrace{\log \pt(\xx_0|\xx_1, \yy)}_{L_0} \Big], \tag{4}
+& - \underbrace{\log \pt(\xx_0|\xx_1, \yy)}_{L_0} \Big]. \tag{4}
 \end{align}
 
 To me, this is the most theoretically rigorous way to derive a conditional diffusion model. (In fact, this has already been used in =lu2022conditional= for speech diffusion!) Oddly enough, this doesn't appear to be the way that labelling is done in practice. Ironically, in the variational autoencoder literature this is how almost all conditional variants are derived, and diffusion models are just multi-latent generalisations of VAEs which learn $T$ latent codes instead (with the added constraint that the dimensionality of those codes are the same as the input dimensionality). I suspect this is probably because, unlike in the case of VAEs, one has to think carefully about how $\yy$ can be conditioned on in the forward process, especially if $\yy$ is not the same dimension as $\xx$.

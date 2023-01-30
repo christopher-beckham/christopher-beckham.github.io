@@ -53,7 +53,7 @@ DDPMs can be derived by first starting off with the evidence lower bound, which 
 
 \begin{align} \label{eq:elbo}
 \log p(\xx) & \geq \text{ELBO}(\xx) \\
-& = \mathbb{E}_{q(\xx_0, \dots, \xx_T)} \Big[ \underbrace{-\log \frac{p(\xx_T)}{q(\xx_T|\xx_0)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t)}{q(\xx_{t-1}|\xx_t, \xx_0)}}_{L_t} - \underbrace{\log \pt(\xx_0|\xx_1)}_{L_0} \Big], \tag{0}
+& = \mathbb{E}_{q(\xx_0, \dots, \xx_T)} \Big[ \underbrace{-\log \frac{p(\xx_T)}{q(\xx_T|\xx_0)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t)}{q(\xx_{t-1}|\xx_t, \xx_0)}}_{L_t} - \underbrace{\log \pt(\xx_0|\xx_1)}_{L_0} \Big. \tag{0}
 \end{align}
 
 <p>
@@ -61,15 +61,15 @@ Using typical DDPM notation, \(\xx_0 \sim q(\xx_0)\) is the real data, and \(q(\
 </p>
 
 \begin{align}
-\pt(\xx_{t-1}|\xx_t) = \mathcal{N}(\xx_{t-1}; \frac{1}{\sqrt{\alpha_t}}\Big( \xx_t - \frac{1-\alpha_t}{\sqrt{1-\alphabar_t}} \epst(\xx_t, t)\Big), \sigma(\xx_t, t))
+\pt(\xx_{t-1}|\xx_t) = \mathcal{N}(\xx_{t-1}; \frac{1}{\sqrt{\alpha_t}}\Big( \xx_t - \frac{1-\alpha_t}{\sqrt{1-\alphabar_t}} \epst(\xx_t, t)\Big), \sigma(\xx_t, t)).
 \end{align}
 
 <p>
-As a further simplification, each of the \(T\) KL terms in the ELBO can be simplified to the following noise prediction task.
+As a further simplification, each of the \(T\) KL terms in the ELBO can be simplified to the following noise prediction task:
 </p>
 
 \begin{align}
-\mathcal{L}(t)  = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \frac{\beta_t^2}{2\sigma_t^2 \alpha_t(1-\alphabar_t)} \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big],
+\mathcal{L}(t)  = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \frac{\beta_t^2}{2\sigma_t^2 \alpha_t(1-\alphabar_t)} \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big].
 \end{align}
 
 <p>
@@ -77,14 +77,14 @@ In practice, a biased version of the loss is used which removes the weighting te
 </p>
 
 \begin{align}
-\mathcal{L}_{\text{simple}}(t) = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big]
+\mathcal{L}_{\text{simple}}(t) = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big].
 \end{align}
 
 <p>
 The following derivations hinge on one important equation that relates diffusion models to score matching <code>song2020score</code>. I take the following from Lilian Weng's blog <code>weng2021diffusion</code>:
 </p>
 \begin{align}
-\st(\xx_t, t) \approx \nabla_{\xx_t} \log q(\xx_t) = -\frac{\epst(\xx_t, t)}{\sqrt{1 - \alphabar_{t}}} \tag{1}
+\st(\xx_t, t) \approx \nabla_{\xx_t} \log q(\xx_t) = -\frac{\epst(\xx_t, t)}{\sqrt{1 - \alphabar_{t}}}. \tag{1}
 \end{align}
 
 <p>
@@ -108,7 +108,7 @@ Through Bayes' rule we know that:
 </p>
 
 \begin{align}
-q(\xx_t|y) = \frac{q(\xx_t, y)}{q(y)} = \frac{q(y|\xx_t)q(\xx_t)}{q(y)}
+q(\xx_t|y) = \frac{q(\xx_t, y)}{q(y)} = \frac{q(y|\xx_t)q(\xx_t)}{q(y)}.
 \end{align}
 
 <p>
@@ -139,7 +139,7 @@ In practice, we can also define the weighted version as follows, which allows us
 </p>
 
 \begin{align} \label{eq:cg_supp}
-    \bar{\epst}(\xx_t, t, y; w) & := \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \nabla_{\xx_t} \log \pphi(y|\xx_t; t), \tag{2}
+    \bar{\epst}(\xx_t, t, y; w) & := \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \nabla_{\xx_t} \log \pphi(y|\xx_t; t). \tag{2}
 \end{align}
 
 <p>
@@ -228,7 +228,7 @@ When we compare both formulations in this manner, we might also ask ourselves, w
 \begin{align}
 \log p(\xx|\yy) & \geq \text{ELBO}(\xx, \yy) \\
 & = \mathbb{E}_{q(\xx_0, \dots, \xx_T, \yy)} \Big[ \underbrace{-\log \frac{\pt(\xx_T|\yy)}{q(\xx_T|\xx_0,\yy)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t,\yy)}{q(\xx_{t-1}|\xx_t, \xx_0, \yy)}}_{L_t} \\
-& - \underbrace{\log \pt(\xx_0|\xx_1, \yy)}_{L_0} \Big], \tag{4}
+& - \underbrace{\log \pt(\xx_0|\xx_1, \yy)}_{L_0} \Big]. \tag{4}
 \end{align}
 
 <p>
