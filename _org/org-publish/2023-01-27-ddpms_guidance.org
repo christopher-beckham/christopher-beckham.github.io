@@ -46,26 +46,48 @@ In this very short blog post, I will be presenting my derivations of two widely 
 
 * Preliminaries
 
-The evidence lower bound can be written as:
+I go over some preliminaries here. If you're new to DDPMs, it may be best to read [[https://lilianweng.github.io/posts/2021-07-11-diffusion-models][this first]]! 
+
+DDPMs can be derived by first starting off with the evidence lower bound, which can be expressed as:
 
 \begin{align} \label{eq:elbo}
 \log p(\xx) & \geq \text{ELBO}(\xx) \\
 & = \mathbb{E}_{q(\xx_0, \dots, \xx_T)} \Big[ \underbrace{-\log \frac{p(\xx_T)}{q(\xx_T|\xx_0)}}_{L_T} - \sum_{t > 1} \underbrace{\log \frac{\pt(\xx_{t-1}|\xx_t)}{q(\xx_{t-1}|\xx_t, \xx_0)}}_{L_t} - \underbrace{\log \pt(\xx_0|\xx_1)}_{L_0} \Big], \tag{0}
 \end{align}
 
-Using typical DDPM notation, $\xx_0 \sim q(\xx_0)$ is the real data, and $q(\xx_t|\xx_{t+1})$ for $t \in \{1, \dots, T\}$ defines progressively noisier distributions, and $\pt$ parameterises a neural net reverse this process. In practice, when such distributions are Gaussian, each of the $T$ KL terms in the ELBO can be simplified to the following noise prediction task, where we train a neural network $\epsilon_{\theta}(\xx_t, t)$ to predict the noise from $\xx_t \sim q(\xx_t|\xx_0)$:
+Using typical DDPM notation, $\xx_0 \sim q(\xx_0)$ is the real data, and $q(\xx_t|\xx_{t+1})$ for $t \in \{1, \dots, T\}$ defines progressively noisier distributions (dictated by some noising schedule $\beta_t$), and $\pt(\xx_{t-1}|\xx_t)$ parameterises a neural net which is trained to reverse this process. In practice, $\pt$ is re-parameterised such that it in turn is a function of a noise predictor $\epst(\xx_t, t)$ which is trained to predict only the noise in the image that is generated via $\xx_t \sim q(\xx_t|\xx_0)$:
+
+\begin{align}
+\pt(\xx_{t-1}|\xx_t) = \mathcal{N}(\xx_{t-1}; \frac{1}{\sqrt{\alpha_t}}\Big( \xx_t - \frac{1-\alpha_t}{\sqrt{1-\alphabar_t}} \epst(\xx_t, t)\Big), \sigma(\xx_t, t))
+\end{align}
+
+As a further simplification, each of the $T$ KL terms in the ELBO can be simplified to the following noise prediction task.
+
+\begin{align}
+\mathcal{L}(t)  = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \frac{\beta_t^2}{2\sigma_t^2 \alpha_t(1-\alphabar_t)} \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big],
+\end{align}
+
+In practice, a biased version of the loss is used which removes the weighting term inside the square brackets. This has the effect of upweighting the loss in favour of noiser images (i.e. $\xx_t$ for large $t$): 
 
 \begin{align}
 \mathcal{L}_{\text{simple}}(t) = \mathbb{E}_{\xx_0, \xx_t, \epsilon_t} \big[ \| \epsilon_t - \epsilon_{\theta}(\xx_t, t)\|^{2} \big]
 \end{align}
 
-These derivations hinge on one important equation that relates diffusion models to score matching =song2020score=. I take the following from Lilian Weng's blog:
-
+The following derivations hinge on one important equation that relates diffusion models to score matching =song2020score=. I take the following from Lilian Weng's blog =weng2021diffusion=:
 \begin{align}
 \st(\xx_t, t) \approx \nabla_{\xx_t} \log q(\xx_t) = -\frac{\epst(\xx_t, t)}{\sqrt{1 - \alphabar_{t}}} \tag{1}
 \end{align}
 
 The question we would like to answer in the following sections is: given an unconditional diffusion model $\pt(\xx)$, how can we easily derive a /conditional/ variant $\pt(\xx|\yy)$? 
+
+#+BEGIN_EXPORT html
+<div id="images">
+<figure>
+<img class="figg" src="/assets/07/sampling.png" width="400" alt="Sampling algorithm" />
+</figure>
+<figcaption>Figure 1: Algorithm for sampling. Taken from ho2020denoising.</figcaption>
+</div><br />
+#+END_EXPORT
 
 * Classifier-based guidance
 
@@ -133,7 +155,7 @@ We simply plug this into Equation (2) to remove the dependence on $\pt(y|\xx_t)$
 
 From Equation (3) we can see that the term being multiplied by $w$ is (roughly) the score induced by the /implicit/ classifier that defined by the diffusion model itself.
 
-One potential benefit from this formulation from the fact that the implicit classifier and unconditional model share the same set of weights $\theta$. If we assume that the knowledge about the unconditional model in $\theta$ can 'transfer' over to the conditional part, then this could give a conditional model that is more reliable than the classifier-based version.
+One potential benefit from this formulation from the fact that the implicit classifier and unconditional model share the same set of weights $\theta$. If we assume that the knowledge about the unconditional model in $\theta$ can 'transfer' over to the conditional part (and vice versa), then this could give a conditional model that is more reliable than the classifier-based version. However, it is not too clear to me how the training time hyperparameter $\puncond$ influences Equation (3) when we use it at generation time. This is because $\puncond$ is done away with and replaced with $w$ instead.
 
 * Conditional ELBO
 
@@ -149,7 +171,7 @@ For classifier-free, this classifier is /implicit/, and the balance between the 
 \pt(\xx|\yy; w) & \propto \underbrace{\pt(\yy|\xx)^{w}}_{\text{implicit}} \pt(\xx).
 \end{align}
 
-When we compare both formulations in this manner, we might also ask ourselves, what's stopping us from just training a conditional model $\pt(\xx|\yy)$ directly, rather than through the product of a classifier and an unconditional model? This is certainly possible, via the /conditional ELBO/. This would correspond to taking Equation (0) and adding $\yy$ to each conditional distribution, as well as converting the prior $p(\xx_T)$ to a (possibly learned) conditional prior $\pt(\xx_T|\yy)$:
+When we compare both formulations in this manner, we might also ask ourselves, what's stopping us from just training a conditional model $\pt(\xx|\yy)$ directly, rather than through the product of a classifier and an unconditional model? This is certainly possible, via the /conditional ELBO/. This would correspond to taking Equation (0) and adding $\yy$ to each conditional distribution, as well as converting the prior $p(\xx_T)$ to a learned conditional prior $\pt(\xx_T|\yy)$:
 
 \begin{align}
 \log p(\xx|\yy) & \geq \text{ELBO}(\xx, \yy) \\
@@ -157,16 +179,18 @@ When we compare both formulations in this manner, we might also ask ourselves, w
 & - \underbrace{\log \pt(\xx_0|\xx_1, \yy)}_{L_0} \Big], \tag{4}
 \end{align}
 
-To me, this is the most theoretically direct way to derive a conditional diffusion model. In fact, this has already been used in =lu2022conditional= for speech diffusion! Oddly enough, the conditional ELBO doesn't appear to be commonly used in models I've seen (at least at the time of writing this). Conversely, in the variational autoencoder literature this is how almost all conditional variants are derived, and I think that is ironic because diffusion models are just multi-latent generalisations of VAEs which learn $T$ latent codes instead (with the added constraint that the dimensionality of those codes are the same as the input dimensionality). Perhaps this is for a good reason. Perhaps what makes this a bit more difficult to think about is how the $\yy$ is meant to interact with $\xx_{t-1}$ for the conditional $q(\xx_{t}|\xx_{t-1},\yy)$. For more details about this kind of model, I highly recommend you read [[https://beckham.nz/2022/09/24/cond-diffusion.html][my other post]] where I talk about =lu2022conditional= and implement a proof-of-concept that also works on discrete labels (through MNIST). I also show that one of the hyperparameters used in the training of this model also acts like a sort of knob that allows one to control between sample quality and diversity.
+To me, this is the most theoretically rigorous way to derive a conditional diffusion model. (In fact, this has already been used in =lu2022conditional= for speech diffusion!) Oddly enough, this doesn't appear to be the way that labelling is done in practice. Ironically, in the variational autoencoder literature this is how almost all conditional variants are derived, and diffusion models are just multi-latent generalisations of VAEs which learn $T$ latent codes instead (with the added constraint that the dimensionality of those codes are the same as the input dimensionality). I suspect this is probably because, unlike in the case of VAEs, one has to think carefully about how $\yy$ can be conditioned on in the forward process, especially if $\yy$ is not the same dimension as $\xx$.
+
+For more details about this kind of model, I highly recommend you read [[/2022/09/24/cond-diffusion.html][my other post]] where I talk about =lu2022conditional= and implement a proof-of-concept that also works on discrete labels (through MNIST). I also show that one of the hyperparameters used in the training of this model also acts like a sort of knob that allows one to control between sample quality and diversity.
 
 * Conclusion
 
 I will summarise everything with some key bullet points:
 - Classifier-based / classifer-free guidance allow us to imbue unconditional diffusion models with the ability to condition on a label.
 - Classifier-based guidance requires an external classifier, but decomposing the model into two modules may be beneficial from the point of view of retraining or fine-tuning on new data.
-- Classifier-free guidance does not require an external classifier, but requires an extra nuisance hyperparameter $\puncond$ during training.
-- A more theoretically direct approach to conditioning on labels is to derive a Gaussian DDPM via the conditional ELBO (Equation (4)), but would require some extra derivations and model assumptions to be made. A cond. ELBO-based approach is used in =lu2022conditional=.
-- All three variants allow for weighting, e.g. Equations (2) and (3), as well as my other blog post.
+- Classifier-free guidance does not require an external classifier, but requires an extra hyperparameter $\puncond$ during training. It isn't clear to me how this influences $w$ because it's not used at all during generation time.
+- A more theoretically direct approach to conditioning on labels is to derive a Gaussian DDPM via the conditional ELBO (Equation (4)), but would require some extra derivations and model assumptions to be made. A conditional ELBO-based approach is used in =lu2022conditional=.
+- All three variants allow for weighting trading off between sample quality and diversity.
 
 * References
 
