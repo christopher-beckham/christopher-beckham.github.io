@@ -16,6 +16,12 @@ $$\newcommand{\alphabar}{\bar{\alpha}}$$
 $$\newcommand{\puncond}{p_{\text{uncond}}}$$
 </div>
 
+<h2>Updates</h2>
+<ul>
+<li>(02/02/2023) Expanded classifier-guidance section, talking about the relationship between w and the dropout probability. Also explaining that classifier-free may be beneficial in a semi-supervised scenario.</li>
+</ul>
+
+
 <div id="table-of-contents" role="doc-toc">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents" role="doc-toc">
@@ -197,7 +203,41 @@ From Equation (3) we can see that the term being multiplied by \(w\) is (roughly
 </p>
 
 <p>
-One potential benefit from this formulation from the fact that the implicit classifier and unconditional model share the same set of weights \(\theta\). If we assume that the knowledge about the unconditional model in \(\theta\) can 'transfer' over to the conditional part (and vice versa), then this could give a conditional model that is more reliable than the classifier-based version. However, it is not too clear to me how the training time hyperparameter \(\puncond\) influences Equation (3) when we use it at generation time. This is because \(\puncond\) is done away with and replaced with \(w\) instead.
+Note that Equation (3) could also be re-written as:
+</p>
+
+\begin{align}
+\bar{\epst}(\xx_t, y, t; w) & := (1-w)\epst(\xx_t, t) + w \epst(\xx_t, y, t), \tag{3b}
+\end{align}
+
+<p>
+and this appears to be <i>almost</i> the same as Equation 6 of <code>dhariwal2021diffusion</code>, though in their paper all the signs appear to be flipped and \((1+w)\epst(\xx_t,t) - w\epst(\xx_t, y, t)\) is used instead. I am not sure if this is an error on their part, or whether it was intentionally changed for convenience.
+</p>
+
+<p>
+A minor confusion I had with this paper stemmed from the fact that there are two parameters which are used to create a modified score estimator: \(\puncond\) is used at <i>training time</i> to weight the <i>unconditional</i> score estimator \(\epst(\xx_t, t)\), and \(w\) is used at <i>generation time</i> to weight the <i>conditional</i> score estimator \(\epst(\xx_t, y, t)\) without using \(\puncond\). Since we use dropout on \(\yy\) at training time with probability \(\puncond\), we can actually think of the predicted score as being a Bernoulli random variable of the form:
+</p>
+
+\begin{equation}
+  \epst(\xx_t, y, t; w)\big|_{w=1-\puncond} =\begin{cases}
+    \epst(\xx_t, y=\emptyset, t) & \text{with probability $\puncond$}.\\
+    \epst(\xx_t, y, t) & \text{otherwise},
+  \end{cases}
+\end{equation} 
+<p>
+and therefore the <i>expected value</i> of this variable would be the following (as per the definition of a Bernoulli random variable):
+</p>
+
+\begin{align}
+\bar{\epst}(\xx_t, y, t; w)\big|_{w=1-\puncond} & = \puncond \epst(\xx_t, t) + (1-\puncond) \epst(\xx_t, y, t). \tag{3c}
+\end{align}
+
+<p>
+Here, we can see that the relationship between \(w\) and \(\puncond\) is through \(w = 1 - \puncond\), but we actually don't want to stick with this definition at test time since it also assumes \(w \in [0,1]\). This means that Equation (3b) is only ever going to be a convex combination between the unconditional and conditional scores. Conversely, letting \(w \in \mathbb{R}^{+}\) lets us be as aggressive as we need to be with guiding the diffusion model.
+</p>
+
+<p>
+One potential benefit from this formulation from the fact that the implicit classifier and unconditional model share the same set of weights \(\theta\). If we assume that the knowledge about the unconditional model in \(\theta\) can 'transfer' over to the conditional part (and vice versa), then this formulation would make a lot of sense in a semi-supervised scenario where one may have significantly more unlabelled examples than labelled ones. The unlabelled ones can be trained with the unconditional score estimator, and hopefully improve the performance of the conditional variant.
 </p>
 </div>
 </div>
@@ -250,7 +290,7 @@ I will summarise everything with some key bullet points:
 <ul class="org-ul">
 <li>Classifier-based / classifer-free guidance allow us to imbue unconditional diffusion models with the ability to condition on a label.</li>
 <li>Classifier-based guidance requires an external classifier, but decomposing the model into two modules may be beneficial from the point of view of retraining or fine-tuning on new data.</li>
-<li>Classifier-free guidance does not require an external classifier, but requires an extra hyperparameter \(\puncond\) during training. It isn't clear to me how this influences \(w\) because it's not used at all during generation time.</li>
+<li>Classifier-free guidance does not require an external classifier, but requires an extra hyperparameter \(\puncond\) during training. Since the same weights are used to parameterise both the implicit classifier and unconditional score estimator, it may be useful in a semi-supervised learning scenario.</li>
 <li>A more theoretically direct approach to conditioning on labels is to derive a Gaussian DDPM via the conditional ELBO (Equation (4)), but would require some extra derivations and model assumptions to be made. A conditional ELBO-based approach is used in <code>lu2022conditional</code>, and I speak about it <a href="https://beckham.nz/2022/09/24/cond-diffusion.html">here</a>.</li>
 <li>All three variants allow for weighting trading off between sample quality and diversity.</li>
 </ul>
