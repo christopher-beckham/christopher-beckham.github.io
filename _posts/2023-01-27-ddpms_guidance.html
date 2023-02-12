@@ -3,7 +3,7 @@ title: Techniques for label conditioning in Gaussian denoising diffusion models
 layout: default_latex
 ---
 
-<h1>Techniques for label conditioning in Gaussian DDPMs</h1>
+<h1>Techniques for label conditioning in Gaussian denoising diffusion models</h1>
 
 <div hidden>
 $$\newcommand{\xx}{\boldsymbol{x}}$$
@@ -12,12 +12,14 @@ $$\newcommand{\pt}{p_{\theta}}$$
 $$\newcommand{\pphi}{p_{\phi}}$$
 $$\newcommand{\st}{s_{\theta}}$$
 $$\newcommand{\epst}{\epsilon_{\theta}}$$
+$$\newcommand{\epstt}{\epsilon_{\theta,\phi}}$$
 $$\newcommand{\alphabar}{\bar{\alpha}}$$
 $$\newcommand{\puncond}{p_{\text{uncond}}}$$
 </div>
 
 <h2>Updates</h2>
 <ul>
+<li>(12/02/2023) Clean up some derivations, re-label some equations.</li>
 <li>(02/02/2023) Expanded classifier-free guidance section, talking about the relationship between w and the dropout probability. Also explaining that classifier-free may be beneficial in a semi-supervised scenario.</li>
 </ul>
 
@@ -28,7 +30,12 @@ $$\newcommand{\puncond}{p_{\text{uncond}}}$$
 <ul>
 <li><a href="#org9f4d0fa">1. Preliminaries</a></li>
 <li><a href="#org48495a0">2. Classifier-based guidance</a></li>
-<li><a href="#org2b4eb55">3. Classifier-free guidance</a></li>
+<li><a href="#org2b4eb55">3. Classifier-free guidance</a>
+<ul>
+<li><a href="#org021bda0">3.1. Sources of confusion</a></li>
+<li><a href="#org3178ed3">3.2. Benefits</a></li>
+</ul>
+</li>
 <li><a href="#org9073a17">4. Conditional ELBO</a></li>
 <li><a href="#orgbf69f3e">5. Conclusion</a></li>
 <li><a href="#org835d2b3">6. References</a></li>
@@ -123,21 +130,36 @@ Taking the score \(\nabla_{\xx_t} \log q(\xx_t|y)\), we get:
 
 \begin{align}
 \nabla_{\xx_t} \log q(\xx_t|y) & = \nabla_{\xx_t} \log q(y|\xx_t) + \nabla_{\xx_t} \log q(\xx_t) - \underbrace{\nabla_{\xx_t} \log q(\yy)}_{= 0} \\
-& \approx \nabla_{\xx_t} \log q(\yy|\xx_t)  - \frac{\epst(\xx_t, t)}{\sqrt{1-\alphabar}},
+& \approx \nabla_{\xx_t} \log q(\yy|\xx_t)  - \frac{\epst(\xx_t, t)}{\sqrt{1-\alphabar_t}}, \ \ \text{(using eqn. (1))} \tag{2a}
 \end{align}
 
 <p>
-where in the last line we make clear the connection between the score function and the noise predictor \(\epst\) <code>weng2021diffusion</code>. If we also do the same trick to the left-hand side and multiply by \(-\sqrt{1-\alphabar_t}\) we get:
+where in the last line we make clear the connection between the score function and the noise predictor \(\epst\) <code>weng2021diffusion</code>. We could also use Equation (1) to do the same thing to the LHS of Equation (2a):
 </p>
 
 \begin{align}
--\sqrt{1-\alphabar_t} \cdot (-1 / \sqrt{1-\alphabar_t})\epst(\xx_t, \yy, t) & = \Big( \nabla_{\xx_t} \log q(\yy|\xx_t)  - \frac{\epst(\xx_t, t)}{\sqrt{1-\alphabar}} \Big) \cdot -\sqrt{1-\alphabar_t} \\
-\implies \ \epst(\xx_t, y, t) & = \epst(\xx_t, t) - \sqrt{1-\alphabar_t} \nabla_{\xx_t} \log q(\yy|\xx_t) \\
-& \approx \epst(\xx_t, t) - \sqrt{1-\alphabar_t} \nabla_{\xx_t} \log \pphi(\yy|\xx_t; t).
+\nabla_{\xx_t} \log q(\xx_t|y) & \approx \nabla_{\xx_t} \log q(\yy|\xx_t)  - \frac{\epst(\xx_t, t)}{\sqrt{1-\alphabar_t}} \\
+\implies -\frac{\epst(\xx_t, \yy, t)}{\sqrt{1-\alphabar_t}} & \approx \nabla_{\xx_t} \log q(\yy|\xx_t)  - \frac{\epst(\xx_t, t)}{\sqrt{1-\alphabar_t}} \tag{2b}
 \end{align}
 
 <p>
-Here we approximate the ground truth classifier \(q(\yy|\xx_t)\) with our own classifier \(\pphi(\yy|\xx_t; t)\). This classifier <i>should</i> be trained on the same distribution of images from the forward process \(q(\xx_0, \dots, \xx_T)\) so that appropriate gradients are obtained during sampling. Note that I have also conditioned on \(t\) as well, which I suspect probably makes it easier for the classifier to predict \(\yy\) from whatever noisy image it receives.
+If we re-arrange for \(\epst(\xx_t, \yy, t)\) in Equation (2b) we finally get:
+</p>
+
+\begin{align}
+\epst(\xx_t, y, t) & \approx \epst(\xx_t, t) - \sqrt{1-\alphabar_t} \nabla_{\xx_t} \log q(\yy|\xx_t) \tag{2c}
+\end{align}
+
+<p>
+The only thing left to do is to approximate the ground truth classifier \(q(\yy|\xx_t)\) with our own classifier \(\pphi(\yy|\xx_t; t)\). This will be defined as:
+</p>
+
+\begin{align}
+\epstt(\xx_t, y, t) := \epst(\xx_t, t) - \sqrt{1-\alphabar_t} \nabla_{\xx_t} \log \pphi(\yy|\xx_t; t). \tag{2d}
+\end{align}
+
+<p>
+This classifier <i>should</i> be trained on the same distribution of images from the forward process \(q(\xx_0, \dots, \xx_T)\) so that appropriate gradients are obtained during sampling. Note that I have also conditioned on \(t\) as well, which I suspect probably is a good extra supervisory signal so that the classifier knows what timestep \(\xx_t\) is coming from.
 </p>
 
 <p>
@@ -145,11 +167,11 @@ In practice, we can also define the weighted version as follows, which allows us
 </p>
 
 \begin{align} \label{eq:cg_supp}
-    \bar{\epst}(\xx_t, t, y; w) & := \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \nabla_{\xx_t} \log \pphi(y|\xx_t; t). \tag{2}
+    \underbrace{\bar{\epstt}(\xx_t, t, y; w) := \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \nabla_{\xx_t} \log \pphi(y|\xx_t; t)}_{\text{classifier-free guidance, plug this into Fig. 1}}. \tag{2e}
 \end{align}
 
 <p>
-Even though this form of label conditioning requires an external classifier, it is quite a simple and principled derivation, and therefore I like it. Essentially, from an unconditional diffusion model \(\pt(\xx)\) we are inducing a <i>conditional</i> variant at generation time, which we can call \(p_{\theta,\phi}(\xx|\yy) \propto \pphi(\yy|\xx)\pt(\xx)\). This distribution can be sampled from by replacing the unconditional noise predictor in your sampling method with \(\bar{\epst}(\xx_t, t, y; w)\).
+Even though this form of label conditioning requires an external classifier, it is quite a simple and principled derivation, and therefore I like it. Essentially, from an unconditional diffusion model \(\pt(\xx)\) we are inducing a <i>conditional</i> variant at generation time. One can think of sampling from this particular noise predictor as sampling an \(\xx \sim p_{\theta,\phi}(\xx|\yy) \propto \pphi(\yy|\xx)\pt(\xx)\) for a given \(\yy\). 
 </p>
 
 <p>
@@ -171,7 +193,7 @@ The idea behind classifier-free guidance is that one could simply instead condit
 </p>
 
 <p>
-The reason for this algorithm is so that a variant of Equation (2) can be derived without depending on an external classifier. From Bayes' rule, we know that:
+The reason for this algorithm is so that a variant of Equation (2c) can be derived without depending on an external classifier. From Bayes' rule, we know that:
 </p>
 
 \begin{align}
@@ -187,7 +209,7 @@ and that therefore the score \(\nabla_{\xx_t} \log \pt(\yy|\xx_t)\) is:
 \end{align}
 
 <p>
-We simply plug this into Equation (2) to remove the dependence on \(\pt(y|\xx_t)\):
+We simply plug this into Equation (2c) (as well as re-introduce \(w\)) to remove the dependence on \(q(y|\xx_t)\):
 </p>
 
 \begin{align}
@@ -195,24 +217,28 @@ We simply plug this into Equation (2) to remove the dependence on \(\pt(y|\xx_t)
     & = \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \Big[ \nabla_{\xx_t} \log \pt(\xx_t|y) - \nabla_{\xx_t} \log \pt(\xx_t) \Big] \\
     & = \epst(\xx_t, t) -\sqrt{1-\bar{\alpha}_t} w \Big[ \frac{-1}{\sqrt{1-\bar{\alpha}_t}} \epst(\xx_t, y, t) - \frac{-1}{\sqrt{1-\bar{\alpha}_t}} \epst(\xx_t, t) \Big] \\
     & = \epst(\xx_t, t) + w \epst(\xx_t, y, t) - w \epst(\xx_t, t) \\
-    & = \underbrace{\epst(\xx_t, t)}_{\approx \nabla_{\xx_t} \log p(\xx)} + w \Big( \underbrace{\epst(\xx_t, y, t) - \epst(\xx_t, t)}_{\approx \nabla_{\xx_t} \log p(\yy|\xx)} \Big). \tag{3}
+    & = \underbrace{\epst(\xx_t, t)}_{\approx \nabla_{\xx_t} \log p(\xx)} + w \Big( \underbrace{\epst(\xx_t, y, t) - \epst(\xx_t, t)}_{\approx \nabla_{\xx_t} \log p(\yy|\xx)} \Big). \tag{3a}
 \end{align}
 
 <p>
-From Equation (3) we can see that the term being multiplied by \(w\) is (roughly) the score induced by the <i>implicit</i> classifier that defined by the diffusion model itself.
-</p>
-
-<p>
-Note that Equation (3) could also be re-written as:
+From Equation (3a) we can see that the term being multiplied by \(w\) is (roughly) the score induced by the <i>implicit</i> classifier that defined by the diffusion model itself. Note that Equation (3a) could also be re-written as:
 </p>
 
 \begin{align}
-\bar{\epst}(\xx_t, y, t; w) & := (1-w)\epst(\xx_t, t) + w \epst(\xx_t, y, t), \tag{3b}
+\underbrace{\bar{\epst}(\xx_t, y, t; w) := (1-w)\epst(\xx_t, t) + w \epst(\xx_t, y, t)}_{\text{classifier-free guidance, plug this into Fig. 1}}, \tag{3b}
 \end{align}
+</div>
 
+<div id="outline-container-org021bda0" class="outline-3">
+<h3 id="org021bda0"><span class="section-number-3">3.1.</span> Sources of confusion</h3>
+<div class="outline-text-3" id="text-3-1">
 <p>
-and this appears to be <i>almost</i> the same as Equation 6 of <code>dhariwal2021diffusion</code>, though in their paper all the signs appear to be flipped and \((1+w)\epst(\xx_t,t) - w\epst(\xx_t, y, t)\) is used instead. I am not sure if this is an error on their part, or whether it was intentionally changed for convenience.
+Equation (3b) appears to be <i>almost</i> the same as Equation 6 of <code>dhariwal2021diffusion</code>, though in their paper all the signs appear to be flipped and \((1+w)\epst(\xx_t,t) - w\epst(\xx_t, y, t)\) is used instead. I'm not sure if this is an oversight or something wrong in my own derivations, but we can just think of it as another way to formulate Equation (3b); essentially, if you substitute in \(-w\) instead of \(w\) for the weighting, you would get:
 </p>
+
+\begin{align}
+\underbrace{\bar{\epst}(\xx_t, y, t; w)|_{w = -w} = (w+1)\epst(\xx_t, t) - w \epst(\xx_t, y, t)}_{\text{classifier-free guidance, alternate formulation, plug this into Fig. 1}}. \tag{3c}
+\end{align}
 
 <p>
 A minor confusion I had with this paper stemmed from the fact that there are two parameters which are used to create a modified score estimator: \(\puncond\) is used at <i>training time</i> to weight the <i>unconditional</i> score estimator \(\epst(\xx_t, t)\), and \(w\) is used at <i>generation time</i> to weight the <i>conditional</i> score estimator \(\epst(\xx_t, y, t)\) without using \(\puncond\). Since we use dropout on \(\yy\) at training time with probability \(\puncond\), we can actually think of the predicted score as being a Bernoulli random variable of the form:
@@ -229,16 +255,22 @@ and therefore the <i>expected value</i> of this variable would be the following 
 </p>
 
 \begin{align}
-\bar{\epst}(\xx_t, y, t; w)\big|_{w=1-\puncond} & = \puncond \epst(\xx_t, t) + (1-\puncond) \epst(\xx_t, y, t). \tag{3c}
+\bar{\epst}(\xx_t, y, t; w)\big|_{w=1-\puncond} & = \puncond \epst(\xx_t, t) + (1-\puncond) \epst(\xx_t, y, t). \tag{3d}
 \end{align}
 
 <p>
 Here, we can see that the relationship between \(w\) and \(\puncond\) is through \(w = 1 - \puncond\), but we actually don't want to stick with this definition at test time since it also assumes \(w \in [0,1]\). This means that Equation (3b) is only ever going to be a convex combination between the unconditional and conditional scores. Conversely, letting \(w \in \mathbb{R}^{+}\) lets us be as aggressive as we need to be with guiding the diffusion model.
 </p>
+</div>
+</div>
 
+<div id="outline-container-org3178ed3" class="outline-3">
+<h3 id="org3178ed3"><span class="section-number-3">3.2.</span> Benefits</h3>
+<div class="outline-text-3" id="text-3-2">
 <p>
-One potential benefit from this formulation from the fact that the implicit classifier and unconditional model share the same set of weights \(\theta\). If we assume that the knowledge about the unconditional model in \(\theta\) can 'transfer' over to the conditional part (and vice versa), then this formulation would make a lot of sense in a semi-supervised scenario where one may have significantly more unlabelled examples than labelled ones. The unlabelled ones can be trained with the unconditional score estimator, and hopefully improve the performance of the conditional variant.
+One potential benefit from the classifier-free formulation is that the implicit classifier and unconditional model share the same set of weights \(\theta\). If we assume that the knowledge about the unconditional model in \(\theta\) can 'transfer' over to the conditional part (and vice versa), then this formulation would make a lot of sense in a semi-supervised scenario where one may have significantly more unlabelled examples than labelled ones. The unlabelled ones can be trained with the unconditional score estimator, and hopefully improve the performance of the conditional variant.
 </p>
+</div>
 </div>
 </div>
 
