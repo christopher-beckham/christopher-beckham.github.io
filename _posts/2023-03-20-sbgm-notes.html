@@ -1,0 +1,105 @@
+---
+title: Derivations for score-based generative models
+layout: default_latex
+---
+
+<h1>Derivations for score-based generative models</h1>
+
+<div hidden>
+<!-- This should be consistent with LATEX_HEADER -->
+$$\newcommand{\xx}{\boldsymbol{x}}$$
+$$\newcommand{\xxtilde}{\tilde{\boldsymbol{x}}}$$
+$$\newcommand{\psigma}{p_{\sigma_i}}$$
+$$\newcommand{\st}{s_{\theta}}$$
+</div>
+
+<p>
+Without any fancy intros, I'm just going to jump straight into it. The score matching loss is defined as follows <code>song2020improved</code>:
+</p>
+
+\begin{align}
+\text{loss} = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)} \mathbb{E}_{\xxtilde \sim \psigma(\xxtilde|\xx)}\ \Big\| \sigma_i \st(\xxtilde, \sigma_i) + \frac{\xxtilde - \xx}{\sigma_i} \Big\|^{2}_{2},
+\end{align} 
+<p>
+where we denote \(\pi\) as some discrete distribution over the number of noise scales \(i \in \{1, \dots, L\}\). For example, if we sample these indices uniformly then \(\pi(i) = \text{Uniform}(i; 1, L)\).
+</p>
+
+<div id="outline-container-org81742c4" class="outline-2">
+<h2 id="org81742c4"><span class="section-number-2">1.</span> Reparameterisation trick</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+Thanks to the re-parameterisation trick, \(\xxtilde \sim \mathcal{N}(\xxtilde; \xx, \sigma)\) can expressed as first sampling standard Gaussian noise \(\epsilon \sim \mathcal{N}(0,1)\) and then computing \(\xxtilde = \xx + \epsilon\sigma\). Therefore, the above equation can be expressed and simplified to the following:
+</p>
+
+\begin{align}
+& \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i, \sigma_i) + \frac{\xx + \epsilon\sigma_i - \xx}{\sigma_i} \Big\|^{2}_{2} \\
+& = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i, \sigma_i) + \epsilon \Big\|^{2}_{2}. \tag{1}
+\end{align} 
+</div>
+</div>
+
+<div id="outline-container-orgbd8c42a" class="outline-2">
+<h2 id="orgbd8c42a"><span class="section-number-2">2.</span> Simplifying noise conditioning</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+In <code>song2020improved</code>, one of the tricks that is proposed is to do away with fancy conditioning techniques inside the U-Net for \(\sigma_i\) as was done in <code>song2019generative</code>. Instead, one just simply scales the output of the U-Net by \(\sigma_i\) instead, which gives us \(\st(\xxtilde, \sigma_i) = \st(\xxtilde) / \sigma_i\). Therefore, we can simplify the above equation even further:
+</p>
+\begin{align}
+& \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i, \sigma_i) + \epsilon \Big\|^{2}_{2} \\
+& = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i) / \sigma_i + \epsilon \Big\|^{2}_{2} \\
+& = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \st(\xx + \epsilon \sigma_i) + \epsilon \Big\|^{2}_{2}. \tag{2}
+\end{align}
+</div>
+</div>
+
+<div id="outline-container-org820cff9" class="outline-2">
+<h2 id="org820cff9"><span class="section-number-2">3.</span> Understanding the implementation in official code</h2>
+<div class="outline-text-2" id="text-3">
+<p>
+The official implementation of the loss doesn't look entirely clear at first, but we can do some derivations to show that it is equivalent to equation (1) if we do some algebra.
+</p>
+
+<p>
+The official code is <a href="https://github.com/ermongroup/ncsnv2/blob/master/losses/dsm.py">here,</a> and the score matching loss is implemented as follows:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-python"><span style="color: #4e5059; font-style: italic;"># </span><span style="color: #4e5059; font-style: italic;">def anneal_dsm_score_estimation(scorenet, samples, sigmas, labels=None, anneal_power=2., hook=None):</span>
+<span style="color: #4e5059; font-style: italic;"># </span><span style="color: #4e5059; font-style: italic;">...</span>
+<span style="color: #e95678;">perturbed_samples</span> = samples + noise
+<span style="color: #e95678;">target</span> = - 1 / (used_sigmas ** 2) * noise
+<span style="color: #e95678;">scores</span> = scorenet(perturbed_samples, labels)
+<span style="color: #e95678;">target</span> = target.view(target.shape[0], -1)
+<span style="color: #e95678;">scores</span> = scores.view(scores.shape[0], -1)
+<span style="color: #e95678;">loss</span> = 1 / 2. * ((scores - target) ** 2).<span style="color: #b877db;">sum</span>(dim=-1) * used_sigmas.squeeze() ** anneal_power
+<span style="color: #4e5059; font-style: italic;"># </span><span style="color: #4e5059; font-style: italic;">...</span>
+</pre>
+</div>
+
+<p>
+When <code>anneal_power=2</code> (the default), then \(\lambda(\sigma_i) = \sigma_i^2\) (see the original paper for what \(\lambda\) is). For a given triplet \((\xx, \sigma_i, \epsilon)\), the loss is:
+</p>
+
+\begin{align}
+\text{loss}_{\xx, \sigma_i, \epsilon} & = \sigma_i^2 \frac{1}{2}\Big\| \st(\xx + \epsilon\sigma_i, i) - (\frac{-1}{\sigma_i^2} \epsilon\sigma_i) \Big\|^{2}_2 \\
+& = \sigma_i^2 \frac{1}{2}\Big\| \st(\xx + \epsilon\sigma_i, i) + \frac{\epsilon}{\sigma_i} \Big\|^{2}_{2} \ \ \text{(simplify)}\\
+& = \sigma_i^2 \frac{1}{2} \sum_{j} \Big[ \st(\xx + \epsilon\sigma_i, i)^2 + \frac{2\epsilon}{\sigma_i} \st(\xx+\epsilon\sigma, i) + \frac{\epsilon^2}{\sigma_i^2}\Big]_{j} \ \ \text{(expand quadratic)} \\
+& = \frac{1}{2} \sum_{j} \Big[ \sigma_i^2 \st(\xx + \epsilon\sigma_i, i)^2 + 2\epsilon\sigma_i \st(\xx+\epsilon\sigma, i) + \epsilon^2\Big]_{j} \ \ \text{(distribute $\sigma_i$)} \\
+& = \frac{1}{2}\Big\| \sigma_i \st(\xx+\epsilon\sigma_i, i) + \epsilon \Big\|^{2}_{2}. \ \ \text{(re-factorise quadratic)}
+\end{align}
+
+<p>
+&#x2026;and we're done! Of course, if you want, you can use the noise conditioning simplification to obtain equation (2) again.
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgd2d123f" class="outline-2">
+<h2 id="orgd2d123f"><span class="section-number-2">4.</span> References</h2>
+<div class="outline-text-2" id="text-4">
+<ul class="org-ul">
+<li><code>song2020improved</code> Song, Y., &amp; Ermon, S. (2020). Improved techniques for training score-based generative models. Advances in neural information processing systems, 33(), 12438–12448.</li>
+<li><code>song2019generative</code> Song, Y., &amp; Ermon, S. (2019). Generative modeling by estimating gradients of the data distribution. Advances in neural information processing systems, 32(), .</li>
+</ul>
+</div>
+</div>
