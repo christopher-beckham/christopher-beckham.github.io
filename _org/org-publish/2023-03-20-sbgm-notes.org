@@ -15,8 +15,8 @@ layout: default_latex
 <div hidden>
 <!-- This should be consistent with LATEX_HEADER -->
 $$\newcommand{\xx}{\boldsymbol{x}}$$
-$$\newcommand{\xxtilde}{\tilde{\boldsymbol{x}}$$
-$$\newcommand{\psigma}{p_{\sigma_i}}}$$
+$$\newcommand{\xxtilde}{\tilde{\boldsymbol{x}}}$$
+$$\newcommand{\psigma}{p_{\sigma_i}}$$
 $$\newcommand{\st}{s_{\theta}}$$
 </div>
 #+END_EXPORT
@@ -43,7 +43,7 @@ In =song2020improved=, one of the tricks that is proposed is to do away with fan
 \begin{align}
 & \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i, \sigma_i) + \epsilon \Big\|^{2}_{2} \\
 & = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i) / \sigma_i + \epsilon \Big\|^{2}_{2} \\
-& = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \st(\xx + \epsilon \sigma_i) + \epsilon \Big\|^{2}_{2}.
+& = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \st(\xx + \epsilon \sigma_i) + \epsilon \Big\|^{2}_{2}. \tag{2}
 \end{align}
 
 * Understanding the implementation in official code
@@ -74,7 +74,7 @@ When =anneal_power=2= (the default), then $\lambda(\sigma_i) = \sigma_i^2$ (see 
 & = \frac{1}{2}\Big\| \sigma_i \st(\xx+\epsilon\sigma_i, i) + \epsilon \Big\|^{2}_{2}. \ \ \text{(re-factorise quadratic)}
 \end{align}
 
-...and we're done!
+...and we're done! Of course, if you want, you can use the noise conditioning simplification to obtain equation (2) again.
 
 * References
 
