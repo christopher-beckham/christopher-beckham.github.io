@@ -2,6 +2,7 @@
 title: Learning the conditional prior over classes for image diffusion
 layout: default_latex
 description: Learning the conditional prior over classes for image diffusion
+tldr: My implementation of a conditional diffusion model for speech enhancement, demonstrated for images on the MNIST dataset. Unlike other conditional formulations which use classifier-style guidance, this proposes a conditional variant of the ELBO.
 ---
 
 $$ \newcommand{\xx}{\boldsymbol{x}}$$
