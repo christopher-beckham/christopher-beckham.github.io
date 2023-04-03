@@ -1,76 +1,90 @@
-                <meta charset="utf-8" emacsmode="-*- markdown -*-">
-                            **Christopher Beckham**
+<style>
+.boxaround {
+  padding-left: 2px;
+  padding-right: 2px;
+  margin-right: 2px;
+  border: 1px solid gray;
+}
+</style>
 
 PhD student, Quebec Artficial Intelligence Institute.<br />
 <b>Research interests:</b> self-supervised learning, generative models, few-shot learning, inverse graphics <br />
 <b>Contact:</b> christopher.beckham(at)mila(dot)quebec
 
-Blogs
-===============================================================================
+<h1>About me</h1>
 
-I now write blog posts as a way to produce content that is not subjected to the bane of peer review. Also it is less formal. You can check out those musings [here](/blog).
+<p>I am a PhD candidate at MILA and Polytechnique Montreal, advised by <a href="https://scholar.google.ca/citations?user=1ScWJOoAAAAJ&hl=en">Prof. Christopher Pal</a>. Previously, I completed my BCMS(Hons) at The University of Waikato, under the supervision of <a href="https://scholar.google.com/citations?user=dUV_NvIAAAAJ&hl=en">Prof. Eibe Frank</a>. My research interests are in model-based optimisation, energy-based models, generative models, and adversarial learning.</p>
 
-Selected papers
-===============================================================================
+<p>I also maintain a [blog](/blog), where I mostly write about things pertaining to my research interests. I consider some of these articles to be under the umbrella of 'alterative' publishing, things that are less appreciated or cared for in 'mainstream' academia such as tutorials, proof of concept work, or reproducing existing papers. (It is also nice to be able to write in prose and not have to be overly formal.)
+
+<h1>Selected papers</h1>
 
 Below is a selection of papers I have published. For a full list, please see my Google Scholar.
 
-Conferences
--------------------------------------------------------------------------------
+<h2>Pre-prints</h2>
 
-
-<img src="figures/fsi-icon.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> **Beckham, C.**, Laradji, I., Rodriguez, P., Vazquez, D., Nowrouzezahrai, D., & Pal, C. (2022). Challenges in leveraging GANs for few-shot data augmentation. arXiv preprint arXiv:2203.16662. <i>Accepted for publication in CoLLAs 2022.</i>
+<img src="figures/fn-diffusion.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">arXiv</span> Lim, J. H., Kovachki, N. B., Baptista, R., <b>Beckham, C.</b>, Azizzadenesheli, K., Kossaifi, J., ... & Anandkumar, A. (2023). Score-based diffusion models in function space. arXiv preprint arXiv:2302.07400.
 <span style="font-size:60%;">[`[`paper`]`](https://arxiv.org/abs/2203.16662) [`[`code`]`](https://github.com/christopher-beckham/challenges-few-shot-gans) [`[`video`]`](https://www.youtube.com/watch?v=uBe5gOz4CSk) </span>
 <br /> 
 <span style="font-size:80%;"><i>tldr: We explore GAN-based few-shot data augmentation to improve classification performance on highly underrepresented classes, and do this in a principled and rigorous manner. We find some difficulty in this task can be mitgated through a simple semi-supervised modification.</i></span>
 
-<img src="figures/amr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> **Beckham, C.**, Honari, S., Verma, V., Lamb, A. M., Ghadiri, F., Hjelm, R. D., Bengio, Y., & Pal, C. (2019). _On adversarial mixup resynthesis._ In Advances in Neural Information Processing Systems (pp. 4346-4357).
+<img src="figures/mbo-robot.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">arXiv</span> 
+<b>Beckham, C.</b>, Piche, A., Vazquez, D., & Pal, C. (2022). Towards good validation metrics for generative models in offline model-based optimisation. arXiv preprint arXiv:2211.10747.
+<span style="font-size:60%;">[`[`paper`]`](https://arxiv.org/abs/2203.16662) [`[`code`]`](https://github.com/christopher-beckham/challenges-few-shot-gans) [`[`video`]`](https://www.youtube.com/watch?v=uBe5gOz4CSk) </span>
+<br /> 
+<span style="font-size:80%;"><i>tldr: In model-based optimisation, online evaluation is expensive and it is desirable to have cheap-to-compute validation metrics that are also well correlated with the real oracle. These metrics can be used to select for better models while mitigating over-reliance on online evaluation.</i></span>
+
+<h2>Conferences</h2>
+
+<img src="figures/fsi-icon.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">CoLLAs 2022</span> <b>Beckham, C.</b>, Laradji, I. H., Rodriguez, P., Vazquez, D., Nowrouzezahrai, D., & Pal, C. (2022, November). Overcoming challenges in leveraging GANs for few-shot data augmentation. In Conference on Lifelong Learning Agents (pp. 255-280). PMLR.
+<span style="font-size:60%;">[`[`paper`]`](https://arxiv.org/abs/2203.16662) [`[`code`]`](https://github.com/christopher-beckham/challenges-few-shot-gans) [`[`video`]`](https://www.youtube.com/watch?v=uBe5gOz4CSk) </span>
+<br /> 
+<span style="font-size:80%;"><i>tldr: We explore GAN-based few-shot data augmentation to improve classification performance on highly underrepresented classes, and do this in a principled and rigorous manner. We find some difficulty in this task can be mitgated through a simple semi-supervised modification.</i></span>
+
+<img src="figures/amr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">NeurIPS 2019</span> **Beckham, C.**, Honari, S., Verma, V., Lamb, A. M., Ghadiri, F., Hjelm, R. D., Bengio, Y., & Pal, C. (2019). _On adversarial mixup resynthesis._ In Advances in Neural Information Processing Systems (pp. 4346-4357).
 <span style="font-size:60%;">[`[`paper`]`](https://papers.nips.cc/paper/8686-on-adversarial-mixup-resynthesis) [`[`code`]`](https://github.com/christopher-beckham/amr) [`[`video`]`](https://www.youtube.com/watch?v=ezbC3_VZeNY) </span>
 <br /> 
 <span style="font-size:80%;"><i>tldr: We leverage mixing functions and adversarial learning to perform representation learning in the bottleneck of a deterministic autoencoder. This can be leveraged as a generative model to produce novel examples (through mixing latent codes of known examples) and also avoid some of the shortcomings commonly observed in variational autoencoder (VAE) models.</i></span>
 
-<img src="figures/mm.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Verma, V., Lamb, A., **Beckham, C.**, Najafi, A., Mitliagkas, I., Lopez-Paz, D., & Bengio, Y. (2019, May). _Manifold mixup: Better representations by interpolating hidden states._ In International Conference on Machine Learning (pp. 6438-6447).
+<img src="figures/mm.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">ICML 2019</span> Verma, V., Lamb, A., **Beckham, C.**, Najafi, A., Mitliagkas, I., Lopez-Paz, D., & Bengio, Y. (2019, May). _Manifold mixup: Better representations by interpolating hidden states._ In International Conference on Machine Learning (pp. 6438-6447).
 <span style="font-size:60%;">[`[`paper`]`](http://proceedings.mlr.press/v97/verma19a.html) [`[`code`]`](https://github.com/vikasverma1077/manifold_mixup)</span>
 <br />
-<span style="font-size:80%;"><i>tldr: Perform mixup (Zhang et al, 2017) but in the hidden layers of a classifier, mixing pairs of hidden states. This can be seen as performing implicit data augmentation by leveraging features internally learned by the classifier. Competitive accuracies are achieved with respect to the original mixup and other baselines.</i></span>
+<span style="font-size:80%;"><i>tldr: Perform mixup interpolation in the hidden layers of a classifier, mixing pairs of hidden states. This can be seen as performing implicit data augmentation by leveraging features internally learned by the classifier. Competitive accuracies are achieved with respect to the original mixup and other baselines.</i></span>
 
-<img src="figures/depthnet.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Moniz, J. R. A. <span>&#8224;</span>, <b>Beckham, C. </b><span>&#8224;</span>, Rajotte, S., Honari, S., & Pal, C. (2018). _Unsupervised depth estimation, 3D face rotation and replacement._ In Advances in Neural Information Processing Systems (pp. 9736-9746). (<span>&#8224;</span> = equal authorship)
+<img src="figures/depthnet.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">NeurIPS 2018</span> Moniz, J. R. A. <span>&#8224;</span>, <b>Beckham, C. </b><span>&#8224;</span>, Rajotte, S., Honari, S., & Pal, C. (2018). _Unsupervised depth estimation, 3D face rotation and replacement._ In Advances in Neural Information Processing Systems (pp. 9736-9746). (<span>&#8224;</span> = equal authorship)
 <span style="font-size:60%;">[`[`paper`]`](https://papers.nips.cc/paper/8181-unsupervised-depth-estimation-3d-face-rotation-and-replacement) [`[`code`]`](https://github.com/joelmoniz/DepthNets) [`[`video`]`](https://www.youtube.com/watch?v=h_brJWd7nNg)</span>
 <br />
-<span style="font-size:80%;"><i>tldr: We perform unsupervised depth estimation by conditioning on source and target keypoints of an object to predict depth, which is subsequently used to parameterise an affine transformation from a source to a target. The inferred depths are well correlated with the ground truth depths and can be used (in our case) to perform various transformations of a face mesh.</i></span>
+<span style="font-size:80%;"><i>tldr: We perform unsupervised depth estimation by conditioning on source and target keypoints of an object to predict depth, which is subsequently used to parameterise an affine transformation from a source pose to a target pose. The inferred depths are well correlated with the ground truth depths and this is demonstrated via face transformations.</i></span>
 
-<img src="figures/weather.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Racah, E., **Beckham, C.**, Maharaj, T., Kahou, S. E., Prabhat, M., & Pal, C. (2017). _ExtremeWeather: A large-scale climate dataset for semi-supervised detection, localization, and understanding of extreme weather events._ In Advances in Neural Information Processing Systems (pp. 3402-3413). <span style="font-size:60%;">[`[`paper`]`](https://papers.nips.cc/paper/6932-extremeweather-a-large-scale-climate-dataset-for-semi-supervised-detection-localization-and-understanding-of-extreme-weather-events) [`[`dataset`]`](https://extremeweatherdataset.github.io/)</span> <br />
-<span style="font-size:80%;"><i>tldr: We propose a high-resolution time series dataset of climate simulations with ground truth labels to perform classification and bounding box prediction. We hope this will be useful in the battle against climate change.</i>
+<img src="figures/weather.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">NeurIPS 2017</span> Racah, E., **Beckham, C.**, Maharaj, T., Kahou, S. E., Prabhat, M., & Pal, C. (2017). _ExtremeWeather: A large-scale climate dataset for semi-supervised detection, localization, and understanding of extreme weather events._ In Advances in Neural Information Processing Systems (pp. 3402-3413). <span style="font-size:60%;">[`[`paper`]`](https://papers.nips.cc/paper/6932-extremeweather-a-large-scale-climate-dataset-for-semi-supervised-detection-localization-and-understanding-of-extreme-weather-events) [`[`dataset`]`](https://extremeweatherdataset.github.io/)</span> <br />
+<span style="font-size:80%;"><i>tldr: We propose a high-resolution time series dataset of climate simulations with ground truth labels. We demonstrate experiments on this dataset in the form of bounding box prediction.</i>
 </span>
 
-<img src="figures/unimodal.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> **Beckham, C.**, & Pal, C. (2017, July). _Unimodal probability distributions for deep ordinal classification._ In International Conference on Machine Learning (pp. 411-419). <span style="font-size:60%;">[`[`paper`]`](http://proceedings.mlr.press/v70/beckham17a.html)</span>
+<img src="figures/unimodal.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">ICML 2017</span> **Beckham, C.**, & Pal, C. (2017, July). _Unimodal probability distributions for deep ordinal classification._ In International Conference on Machine Learning (pp. 411-419). <span style="font-size:60%;">[`[`paper`]`](http://proceedings.mlr.press/v70/beckham17a.html)</span>
 <br />
 <span style="font-size:80%;"><i>tldr: Unimodal distributions are a natural way to fit probability distributions for many ordinal classification tasks. We use deep nets to parameterise binomial and Poisson distributions with optional temperature scaling to control distribution variance.</i></span>
 
-Journals
--------------------------------------------------------------------------------
+<h2>Journals</h2>
 
-<img src="figures/weka.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Lang, S., Bravo-Marquez, F., **Beckham, C.**, Hall, M., & Frank, E. (2019). Wekadeeplearning4j: A deep learning package for WEKA based on DeepLearning4j. Knowledge-Based Systems, 178, 48-50. <span style="font-size:60%;">[`[`paper`]`](https://felipebravom.com/publications/WDL4J_KBS2019.pdf) [`[`code`]`](https://github.com/Waikato/wekaDeeplearning4j/)</span>
+<img src="figures/clevr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">PatRec 2023</span> **Beckham, C.**, Weiss, M., Golemo, F., Honari, S., Nowrouzezahrai, D., & Pal, C. (2023). Visual question answering from another perspective: CLEVR Mental Rotation Tests. Pattern Recognition, 136, 109209.
+<br />
+<span style="font-size:80%;"><i>tldr: Fuse mental rotation tests with CLEVR visual-question answering (VQA). The goal is to be able to answer a question from a random viewpoint that is not the same as the viewpoint given to the VQA model. We also propose the use of contrastive learning to learn a 2D-to-3D volumetric encoder, without camera extrinsics.</i></span>
+
+<img src="figures/genseg.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"><span class="boxaround">MIA 2022</span> Vorontsov, E., Molchanov, P., Gazda, M., **Beckham, C.**, Kautz, J., & Kadoury, S. (2022). Towards annotation-efficient segmentation via image-to-image translation. Medical Image Analysis, 82, 102624.
+<br />
+<span style="font-size:80%;"><i>tldr: Ground truth images for segmentations are laborious and costly to obtain. By leveraging weaker labels, i.e. whether an image is of a sick/healthy patient, we can leverage image-to-image translation techniques (translating between sick and healthy domains) to augment performance of the segmentation network.</i></span>
+
+<img src="figures/weka.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> <span class="boxaround">KBS 2019</span> Lang, S., Bravo-Marquez, F., <b>Beckham, C.</b>, Hall, M., & Frank, E. (2019). Wekadeeplearning4j: A deep learning package for WEKA based on DeepLearning4j. Knowledge-Based Systems, 178, 48-50. <span style="font-size:60%;">[`[`paper`]`](https://felipebravom.com/publications/WDL4J_KBS2019.pdf) [`[`code`]`](https://github.com/Waikato/wekaDeeplearning4j/)</span>
 <br />
 <span style="font-size:80%;"><i>tldr; Users can now train and tinker with deep neural networks within WEKA and its graphical user interface.</i></span>
 
-Workshops
--------------------------------------------------------------------------------
+<h2>Workshops</h2>
 
-<img src="figures/sqerr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> **Beckham, C.**, & Pal, C. (2016). _A simple squared-error reformulation for ordinal classification._ arXiv preprint arXiv:1612.00775. _(Accepted into NIPS 2016: Machine Learning for Health)_ <br />
+<img src="figures/sqerr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> <span class="boxaround">ML4H @ NeurIPS 2016</span> <b>Beckham, C.</b>, & Pal, C. (2016). _A simple squared-error reformulation for ordinal classification._ arXiv preprint arXiv:1612.00775. <br />
 <span style="font-size:80%;"><i>tldr: Treat ordinal classification as a regression problem, but still maintain a discrete probability distribution over classes by computing the regression as the expectation of integer labels over that distribution.</i></span>
 
-Pre-prints
--------------------------------------------------------------------------------
 
-<img src="figures/clevr.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> <b>Beckham, C.</b>, Weiss, M., Golemo, F., Honari, S., Nowrouzezahrai, D., Pal, C. (2020). _Visual Question Answering From Another Perspective: CLEVR Mental Rotation Tests._ OpenReview. <br />
-<span style="font-size:80%;"><i>tldr: Fuse mental rotation tests with CLEVR visual-question answering (VQA). The goal is to be able to answer a question from a random viewpoint that is not the same as the viewpoint given to the VQA model. We also propose the use of contrastive learning to learn a 2D-to-3D volumetric encoder, without camera extrinsics.</i></span>
-
-<img src="figures/genseg.png" alt="Image" style="float: left; margin: 3px 12px 3px 0px;"> Vorontsov, E., Molchanov, P., <b>Beckham, C.</b>, Byeon, W., De Mello, S., Jampani, V., ... & Kautz, J. (2019). _Towards semi-supervised segmentation via image-to-image translation._ arXiv preprint arXiv:1904.01636. <br />
-<span style="font-size:80%;"><i>tldr: Ground truth images for segmentations are laborious and costly to obtain. By leveraging weaker labels, i.e. whether an image is of a sick/healthy patient, we can leverage image-to-image translation techniques (translating between sick and healthy domains) to augment performance of the segmentation network.</i></span>
-
-Reviewing
-===============================================================================
+<h1>Reviewing</h1>
 
 - NeurIPS (2019, 2020, 2022), ICLR (2020, 2021), ICCV (2021), SIGGRAPH Asia (2020)
 
