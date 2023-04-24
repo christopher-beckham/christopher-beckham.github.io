@@ -64,7 +64,7 @@ q(\xx_{t-1}|\xx_t, \xx_0) & = \frac{q(\xx_t | \xx_{t-1}, \xx_0) q(\xx_{t-1}|\xx_
 
 ** Deriving the main equation
 
-In the original version of this blog post, I just stated Equation (1b) without really deriving it myself. However, there were a few people who were asking about how Eqn. (1b) was derived. After having many back and forths with James Ye through email, we believe there are some errors in that derivation. 
+In the original version of this blog post, I just stated Eqn. (1b) without really deriving it myself. However, there were a few people who were asking about how it was derived. After a long back and forth with [[https://scholar.google.com/citations?user=NnTZZ74AAAAJ&hl=en&oi=ao][James Ye]] (who helped me with the derivations) it looks like the equation is correct, but it took a lot of trial and error to get there.
 
 We start off with some preliminaries:
 - $\xx_t \in \{0,1\}^{k}$ (for any $t$) is a discrete label represented as a one-hot vector.
@@ -135,7 +135,7 @@ In Eqn. (4) we saw an interesting kind of expression, one where the probability 
 - $q(X_{t} | X_{t-1}) \in [0,1]^{k \times k}$, what is the probability distribution over the different values $X_t$ can taken on, for some unspecified $X_{t-1}$?
 - $q(X_t|X_{t-1} = \xx_{t-1}) \in [0,1]^{1 \times k}$, what is the probability distribution over the different values of $X_t$ /given/ that I have observed $X_{t-1}$ to be $\xx_{t-1}$?
 - $q(X_t = \xx_t | X_{t-1} = \xx_{t-1}) \in [0,1]$: what is the probability of observing $X_{t} = \xx_t$, /given/ that I have observed $X_{t-1}$ to be $\xx_{t-1}$?
-- And lastly $q(X_t = \xx_{t} | X_{t-1})$: what is the probability of observing $X_t = \xx_t$, given that... well, nothing has been observed, so what does this mean?
+- And lastly $q(X_t = \xx_{t} | X_{t-1}) \in [0,1]^{k \times 1}$: what is the probability of observing $X_t = \xx_t$, given that... well, nothing has been observed, so what does this mean?
 
 We know via Eqn. (4) that $q(X_t = \xx_{t} | X_{t-1})$ is a column vector (i.e. a $k \times 1$ matrix) and that its entries encode the following:
 
