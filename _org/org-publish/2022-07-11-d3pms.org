@@ -141,6 +141,7 @@ We know via Eqn. (4) that $q(X_t = \xx_{t} | X_{t-1})$ is a column vector (i.e. 
 
 
 \begin{align}
+q(X_t = \xx_{t} | X_{t-1}) =
 \begin{bmatrix} 
 q(X_t = \xx_{t} | X_{t-1} = [1, 0, \dots, 0]) \\ 
 q(X_t = \xx_{t} | X_{t-1} = [0, 1, \dots, 0 ]) \\ 
@@ -150,7 +151,7 @@ q(X_t = \xx_{t} | X_{t-1} = [0, 0, \dots, 1 ]) \\
 \end{align}
 
 
-So its interpretation as a column vector is: what is the probability of observing $X_t = \xx_t$, over /all possible/ $X_{t-1}$'s if they /were/ to be observed?
+So its interpretation is also simple: as a distribution over all possible observed $X_{t-1}$'s, what is the probability of observing $X_t = \xx_t$? Or, simply consider the $j$'th element of the vector instead: what is the probability of observing $X_t = \xx_t$, if I /did/ condition on the observation that $X_{t-1}$ was $j$?
 
 I thank James Ye for asking this question, since it also had me confused. Hopefully my explanation suffices.
 
