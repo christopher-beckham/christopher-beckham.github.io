@@ -8,6 +8,7 @@
 title: My notes on discrete denoising diffusion models (D3PMs)
 layout: default_latex
 description: My notes on discrete denoising diffusion models (D3PMs).
+tldr: My notes on D3PMs. It includes derivations for the two main equations presented in their work.
 image: 
   path: /assets/d3pm/thumbnail.png
   width: 256
