@@ -1,0 +1,185 @@
+#+OPTIONS: toc:nil
+#+LATEX_HEADER: \newcommand{\xx}{\bm{x}}
+#+LATEX_HEADER: \newcommand{\zz}{\bm{z}}
+#+LATEX_HEADER: \newcommand{\yy}{\bm{y}}
+#+LATEX_HEADER: \newcommand{\xxt}{\tilde{\bm{x}}}
+#+LATEX_HEADER: \newcommand{\yt}{\tilde{y}}
+#+LATEX_HEADER: \newcommand{\pt}{\textcolor{porange}{p_{\theta}}}
+#+LATEX_HEADER: \newcommand{\pto}{p_{\theta, \omega}}
+#+LATEX_HEADER: \newcommand{\ft}{f_{\theta}}
+#+LATEX_HEADER: \newcommand{\argmax}{\text{argmax}}
+#+LATEX_HEADER: \newcommand{\Dtrain}{\mathcal{D}_{\text{train}}}
+#+LATEX_HEADER: \newcommand{\Dvalid}{\mathcal{D}_{\text{val}}}
+#+LATEX_HEADER: \newcommand{\tbest}{\theta^{*}}
+#+LATEX_HEADER: \newcommand{\wbest}{\omega^{*}}
+#+LATEX_HEADER: \newcommand{\sgn}{\text{sgn}}
+#+LATEX_HEADER: \newcommand{\circleone}{\textcircled{\small{1}}}
+#+LATEX_HEADER: \newcommand{\circletwo}{\textcircled{\small{2}}}
+#+LATEX_HEADER: \newcommand{\circlethree}{\textcircled{\small{3}}}
+#+LATEX_HEADER: \newcommand{\circlefour}{\textcircled{\small{4}}}
+#+LATEX_HEADER: \definecolor{qpink}{RGB}{122, 24, 128}
+#+LATEX_HEADER: \definecolor{porange}{RGB}{12, 120, 6}
+#+LATEX_HEADER: \newcommand{\pzgivenx}{\textcolor{porange}{p_{\theta}}(\zz|\xx)}
+#+LATEX_HEADER: \newcommand{\pxgivenz}{\textcolor{porange}{p_{\theta}}(\xx|\zz)}
+#+LATEX_HEADER: \newcommand{\qzgivenx}{\textcolor{qpink}{q_{\phi}}(\zz|\xx)}
+#+LATEX_HEADER: \newcommand{\qzgivenxi}{\textcolor{qpink}{q_{\phi}}(\zz|\zz^{(i)})}
+#+LATEX_HEADER: \newcommand{\qx}{\textcolor{qpink}{q}(\xx)}
+#+LATEX_HEADER: \newcommand{\qp}{\textcolor{qpink}{q_{\phi}}}
+#+LATEX_HEADER: \newcommand{\qpink}{\textcolor{qpink}{q}}
+#+LATEX_HEADER: \newcommand{\qpz}{\textcolor{qpink}{q_{\phi}(\zz)}}
+#+LATEX_HEADER: \newcommand{\pz}{\textcolor{porange}{p}(\zz)}
+#+LATEX_HEADER: \newcommand{\qz}{\textcolor{qpink}{q}(\zz)}
+#+LATEX_HEADER: \newcommand{\qzx}{\textcolor{qpink}{q}(\zz, \xx)}
+#+LATEX_HEADER: \newcommand{\kldiv}{ \mathcal{D}_{\text{KL}} }
+#+LATEX_HEADER: \newcommand{\elbo}{ \text{ELBO}(\textcolor{qpink}{\phi}, \textcolor{porange}{\theta}) }
+
+
+#+BEGIN_EXPORT html
+---
+title: The (unspoken?) difficulties in training conditional VAEs
+layout: default_latex
+---
+
+<h1>Difficulties in training conditional VAEs</h1>
+
+<div hidden>
+<!-- This should be consistent with LATEX_HEADER -->
+$$\newcommand{\xx}{\boldsymbol{x}}$$ 
+$$\newcommand{\zz}{\boldsymbol{z}}$$ 
+$$\newcommand{\xxt}{\tilde{\boldsymbol{x}}}$$
+$$\newcommand{\yt}{\tilde{y}}$$
+$$\newcommand{\pt}{p_{\theta}}$$
+$$\newcommand{\pto}{p_{\theta, \omega}}$$
+$$\newcommand{\ft}{f_{\theta}}$$
+$$\newcommand{\argmax}{\text{argmax}}$$
+$$\newcommand{\Dtrain}{\mathcal{D}_{\text{train}}}$$
+$$\newcommand{\Dvalid}{\mathcal{D}_{\text{valid}}}$$
+$$\newcommand{\tbest}{\theta^{*}}$$
+$$\newcommand{\wbest}{\omega^{*}}$$
+$$\newcommand{\sgn}{\text{sgn}}$$
+</div>
+
+#+END_EXPORT
+
+#+BEGIN_COMMENT
+Use LatexIt to generate.
+
+Preamble:
+
+\usepackage{tikz}
+
+--------------
+
+Dependent C-VAE:
+
+\begin{tikzpicture}
+    \node[shape=circle,draw=black] (Y) at (0,0) {Y};
+    \node[shape=circle,draw=black] (Z) at (2,0) {Z};
+    \node[shape=circle,draw=black] (X) at (4,0) {X};
+    \path [->](Y) edge node[left] {} (Z);
+    \path [->](Z) edge node[left] {} (X);
+    \path [->](Y) edge[bend right] node[left] {} (X);
+\end{tikzpicture}
+
+Independent C-VAE:
+
+\begin{tikzpicture}
+    \node[shape=circle,draw=black] (Y) at (0,0.5) {Y};
+    \node[shape=circle,draw=black] (Z) at (4,0.5) {Z};
+    \node[shape=circle,draw=black] (X) at (2,0) {X};
+    \path [->](Y) edge node[left] {} (X);
+    \path [->](Z) edge node[left] {} (X);
+\end{tikzpicture}
+#+END_COMMENT
+
+#+TOC: headlines 2
+
+- Basic equation for VAE, talk about the assumptions
+  - either x and z can be cond. independent given x or not
+  - y -> z -> x => a conditional prior p(z|y)???
+- Then go to the 4 term equation
+
+* Introduction
+
+This is yet another excerpt from my upcoming PhD thesis. I actually wanted to write this several years ago after some really painful experiences I had with getting conditional VAEs to work on a generative modelling project I was working on. To be honest, I haven't seen any papers that deeply go into how troubling it is to train a C-VAE, much less one which takes the viewpoint of explaining these issues through the lens of mutual information estimation, which is what I want to show in this post.
+
+I will save the basics on VAEs for another blog post. Otherwise, let's get started. The ELBO for a conditional VAE can be written as follows:
+
+\begin{align} \label{eq:elbo_original}
+\elbo = \mathbb{E}_{\xx, \yy, \zz \sim \qp(\xx,\yy, \zz)}  \pt(\xx|\zz,\yy) + \text{KL}[ Q(Z|X) \| P(Z) ] \tag{1} 
+\end{align}
+
+It is useful to note that there are two ways in which the joint distribution for a VAE can be expressed, and these come down to the independence assumptions on $X, Y, Z$.  
+
+If we assume that $p(\yy, \zz) = p(\zz)p(\yy)$ (i.e. they are independent) then:
+
+\begin{align} \label{eq:case1}
+\log p(\xx, \yy) & \geq \mathbb{E}_{q(\zz|\xx,\yy)}\big[ \log \frac{p(\xx | \yy, \zz)p(\yy,\zz)}{q(\zz|\xx,\yy)} \big] \nonumber \\
+& = \mathbb{E}_{q(\zz|\xx,\yy)}\big[ \log \frac{p(\xx | \yy, \zz)p(\yy)p(\zz)}{q(\zz|\xx,\yy)} \big] \nonumber \\
+& = \mathbb{E}_{q(\zz|\xx,\yy)}\big[ \log p(\xx|\yy,\zz) \big] + \mathbb{E}_{q(\zz|\xx,\yy)}\big[ \log \frac{p(\yy)p(\zz)}{q(\zz|\xx,\yy)} \big] \nonumber \\
+& = \mathbb{E}_{q}\big[ \log p(\xx|\yy,\zz) \big] + \mathbb{E}_{q}\big[ \log \frac{p(\zz)}{q(\zz|\xx,\yy)} \big] + \log p(\yy) \\
+& = \text{likelihood} - \text{KL} + \text{constant}. \nonumber
+\end{align}
+
+Note that the last term in Equation \ref{eq:case1} is constant because it is just the empirical distribution over $\yy$, which we typically do not learn with respect to the VAE parameters. Also note that the prior is $p(\zz)$, which is not that meaningful to us since it is not conditioned on $\yy$.
+
+For this post we will assume an independent conditional structure, which means we assume $Z$ and $Y$ are independent. This is a useful assumption to make if we wish to optimise a variational autoencoder where those variables are disentangled and encode semantically different things. For instance, if $Y$ is some semantic label of $X$ (e.g. images of dogs in the wild) then we could think of $Y$ as encoding exactly that and $Z$ encoding sources of stochasticity such as background details and other things not related to dogs. The issues that I talk about here are still relevant to entangled VAEs, because the fundamental issue I want to speak about is that which involves training a VAE that is modelling the effect of two latent variables.
+
+Here, we are making use of two colours to denote two different pathways that are encoded by the VAE. The first pathway is the /inference process/, which is the following:
+
+\begin{align} \label{eq:inference}
+\xx, \yy & \sim \qpink(\xx, \yy) \tag{2a} \\
+\zz & \sim  \qp(\zz|\xx, \yy) \tag{2b}
+\end{align}
+
+where $\qpink(\xx,\yy)$ is the ground truth data distribution, and $\qzgivenx$ is our learnable variational posterior, subscripted with $\phi$. The inference process is concerned with extracting latent representations from actual samples from the data distribution. This is to be contrasted with the /generative/ process, in which samples are generated as the following:
+
+\begin{align} \label{eq:generative}
+\zz & \sim \pz \tag{3a} \\
+\yy & \sim p(\yy) \tag{3b} \\
+\xx &\sim \pt(\xx|\zz,\yy) \tag{3c}
+\end{align}
+
+This two-pronged view of VAEs lets us get comfortable with =esmaeili2018structured= (a really awesome paper), which frames the ELBO as a minimisation the KL divergence between the /generative model/ $\pz \pxgivenz$ and the /inference model/ $\qzgivenx \qx$. This new ELBO can be written as a sum of four terms:
+
+\begin{align} \label{eq:elbo4}
+\mathcal{L}_{ \theta, \psi}(\bm{x}) = \mathbb{E}_{\qp(\xx,\yy,\zz)} \Big[ \underbrace{\log \frac{\cpxz{\pt(\xx|\zz, \yy)}}{\cpz{\pt(\xx)}}}_{\circleone} - \underbrace{\log \frac{\cqxz{\qp(\zz|\xx, \yy)}}{\cqz{\qp(\zz)}}}_{\circletwo} \Big] - \tag{4a} \\
+\underbrace{\text{KL}( \cqx{q(\xx)} \| \cpx{\pt(\xx)} )}_{\circlethree} - \underbrace{\text{KL}( \cqz{\qp(\zz)} \| \cpz{p(\bm{z})})}_{\circlefour} \tag{4b}
+\end{align}
+
+As stated in =esmaeili2018structured=, the traditional ELBO term, which is a sum of a likelihood and KL regularisation term, can be written under this framework as $(\circleone+\circlethree) + \beta (\circletwo+\circlefour)$ (where $\beta$ is typically used to weight the KL term as in =burgess2018understanding=). =esmaeili2018structured= provides a very detailed explanation of all four of these terms and how they affect both the generative and inference model, as well as diagrams which illustrate what happens when each of the four terms are ommitted.
+
+For what I'd like to show in this post we can just focus on the first two terms: $\circleone$ and $\circletwo$. $\circleone$ encourages a bijective mapping between $\mathcal{X}$ and $\mathcal{Z}$ (i.e. each $\bm{x}$ should map to a unique $\bm{z}$), while $\circletwo$ is minimising the /mutual information/ between $X$ and the pair $(Z,Y)$, which we denote $I_{\phi}(Z; X, Y)$ (note the use of the semicolon here to separate out the two sets of variables). We can show this via the following derivations:
+
+\begin{align} \label{eq:expand2}
+\max_{\phi} \circletwo & = \max_{\phi} \mathbb{E}_{\cqxz{\qp(\bm{x},\bm{z},\bm{y})}} \Big[ -\log \frac{\cqxz{\qp(\bm{z}|\bm{x},\bm{y})}}{\cqz{\qp(\bm{z})}} \Big] \tag{5a}  \\
+& = \max_{\phi} -I_{\phi}(Z; X, Y) \tag{5b} \\
+& = \min_{\phi} I_{\phi}(Z; X, Y) \tag{5c} \\
+& = \min_{\phi} I_{\phi}(Z; X) + I_{\phi}(Z; Y) + I_{\phi}(X; Y; Z), \tag{5d}
+\end{align}
+
+where the two main terms of interest to us are $I_{\phi}(Z; X)$ and $I_{\phi}(Z; Y)$ (the third term is called interaction information and I don't think it's of significance here). The second term, $I_{\phi}(Z; Y)$ is a property we would like to /minimise/ for our $Z,Y$ disentangled VAE because we would like $Y$ to only capture the semantic content of the image (i.e. the label), and $Z$ to capture the stylistic features of the image (such as the background and font). Unfortunately, at the same time we're also minimising (by definition) the first term $I_{\phi}(Z; X)$, which is constraining how much information about $X$ is encoded in $Z$. This in turn will negatively affect our ability to reconstruct the data well. Also note that term (1) is doing the opposite:
+
+\begin{align}
+\max_{\theta} I_{\theta}(X; Z, Y) & = \max_{\theta} I_{\theta}(X; Z) + I_{\theta}(X; Y) + I_{\theta}(X; Z; Y) \\ 
+& = \mathbb{E}_{\pt(\bm{x},\bm{z},\bm{y})} \log \frac{\cpxz{\pt(\bm{x}|\bm{z},\bm{y})}}{\cpx{\pt(\bm{x})}} \\
+& \approx \underbrace{\mathbb{E}_{\cqxz{\qp(\bm{x},\bm{z},\bm{y})}} \log \frac{\cpxz{\pt(\bm{x}|\bm{z},\bm{y})}}{\cpx{\pt(\bm{x})}}}_{\circleone}
+\end{align}
+
+I am calling this approximate MI, and it would only be equivalent to MI if p and q were equal.
+
+
+This ends up in a weird dilemma of sorts: the more you want $Z$ and $Y$ to be disentangled, the more you need to constrain the amount of information about $X$ that is encoded in $Z$.
+
+
+* Experiments
+
+---
+
+Do we still have this issue in diffusion? They use classifier guidance, correct???
+
+
+
+
+
+if we would like to train a conditional VAE of the form $p(x,y,z)=...$. To see why, we expand this term into a summation of extra mutual information terms:
