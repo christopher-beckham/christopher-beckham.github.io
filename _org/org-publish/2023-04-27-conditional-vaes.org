@@ -144,9 +144,16 @@ I will save the basics for unconditional VAEs for another blog post. I should be
 
 # In the next section I'll give a different perspective on how the ELBO can be derived. This perspective will help us reason about some of the difficulties inherent in training conditional VAEs. 
 
-
+The contributions of this blog post are as follows:
+- In Section [[#sec_perspective]] we will derive conditional VAEs through an unconventional but rather enlightening perspective. This involves thinking about the VAE as parameterising two separate pathways (the /generative/ and /inference/ process) and minimising the KL divergence between the two. While we focus on conditional VAEs in this post, the same derivation can be used for unconditional VAEs.
+- We discuss two parameterisations of a conditional VAE: one where the conditioning variable $\yy$ and latent variable $\zz$ are assumed to be independent (Section [[#sec_zy_independent]]), and one where they are not (Section [[#sec_zy_dependent]]).
+- Through the lens of mutual information terms, in Section [[#sec_mi]] we show why conditional VAEs can be frustrating to implement.
+- In Section [[#sec_experiments]] we present experiments corroborating this behaviour on a toy 2D dataset consisting of two Gaussian clusters, where a conditional VAE must be trained to sample from either of the two clusters correctly.
 
 ** Two perspectives of the same network
+:PROPERTIES:
+:CUSTOM_ID: sec_perspective
+:END:
 
 Inspired by =esmaeili2018structured=, we can actually derive the ELBO for a VAE by framing the training objective as a minimisation over the KL divergence between two pathways, each encoded by their own joint distribution. Since we're also talking about conditional VAEs, we will be dealing with an additional latent variable $\yy$, but unlike $\zz$ we have labels for this. We assume that $\yy$ encodes some semantic meaningful label of interest, for instance the class of a digit, or the identity of an object. 
 
@@ -179,6 +186,10 @@ Since joint distribution for both processes are $\ptgreen(\xx,\zz,\yy)$ and $\qp
 # qp(zz,xx,yy) on second to last line, second term (KL) is making this whole thing not render... why??
 
 ** When z and y are independent
+:PROPERTIES:
+:CUSTOM_ID: sec_zy_independent
+:END:
+
 
 At this point, we have to specify what $p(\zz,\yy)$ is, and we have two options. The first is to assume that $p(\zz,\yy) = p(\zz)p(\yy)$, i.e. they are independent. This means that the joint distribution of the generative process factorises into:
 
@@ -202,7 +213,7 @@ $p(\yy)$ is some prior for $\yy$ but it falls out of the KL term and becomes a c
 <figure>
 <img class="figg" src="/assets/cvae/cvae-independent.png" width="400" alt="" /> 
 </figure>
-<figcaption>Figure 1: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</figcaption>
+<figcaption><b>Figure 1: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</b></figcaption>
 <br />
 </div>
 #+END_EXPORT
@@ -210,6 +221,9 @@ $p(\yy)$ is some prior for $\yy$ but it falls out of the KL term and becomes a c
 Such an assumption may be useful to encode if we are seeking to learn /disentangled/ representations. For instance, if we were learning a conditional VAE over SVHN digits (where $y$ encodes the identity of the digit), perhaps we would like for our VAE to learn a $\zz$ that encodes /everything else/ in the image apart from the digit itself, for instance details in the background and the font, colour, etc. of the digit. This would make for a very controllable generative process where we are able to apply different styles $\zz$ to the same digit $\yy$, and vice versa.
 
 ** When z and y are dependent
+:PROPERTIES:
+:CUSTOM_ID: sec_zy_dependent
+:END:
 
  Otherwise, $\pgreen(\zz,\yy) = \pgreen(\zz|\yy)\pgreen(\yy)$ and $\pgreen(\zz|\yy)$ is the /conditional prior/. This means that the joint distribution factorises into:
 
@@ -239,8 +253,11 @@ Consequently, the graphical model for the generative process is shown in Figure 
 #+END_EXPORT
 
 ** A mutual information interpretation
+:PROPERTIES:
+:CUSTOM_ID: sec_mi
+:END:
 
-This new ELBO can be written as a sum of four terms (for the full derivation, see the appendix):
+This new ELBO can be written as a sum of four terms (for the full derivation, see Sec [[#sec_derivation]]):
 
 \begin{align} \label{eq:elbo4}
 \mathcal{L}_{ \theta, \psi}(\xx) = \mathbb{E}_{\qp(\xx,\yy,\zz)} \Big[ \underbrace{\log \frac{\pt(\xx|\zz,\yy)}{\pt(\xx)}}_{\circleone} - \underbrace{\log \frac{\qp(\zz|\xx, \yy)}{\qp(\zz)}}_{\circletwo} \Big] - \nonumber \\
@@ -255,12 +272,14 @@ For what I'd like to show in this post we can just focus on the first two terms:
 
 \begin{align} \label{eq:expand2}
 \max_{\phip} \circletwo & = \max_{\phip} \mathbb{E}_{\qp(\xx,\zz,\yy)} \Big[ -\log \frac{\qp(\zz|\xx,\yy)}{\qp(\zz)} \Big] \tag{5a}  \\
-& = \max_{\phip} -I_{\phip}(Z; X, Y) \tag{5b} \\
-& = \min_{\phip} I_{\phip}(Z; X, Y) \tag{5c} \\
-& = \min_{\phip} I_{\phip}(Z; X) + I_{\phip}(Z; Y) + I_{\phip}(X; Y; Z), \tag{5d}
+& = \max_{\phip} -I_{\phip}(\ZZ; \XX, \YY) \tag{5b} \\
+& = \min_{\phip} I_{\phip}(\ZZ; \XX, \YY) \tag{5c} \\
+& = \min_{\phip} I_{\phip}(\ZZ; \XX) + I_{\phip}(\ZZ; \YY) + I_{\phip}(\XX; \YY; \ZZ), \tag{5d}
 \end{align}
 
-The two main terms of interest to us are $I_{\phi}(Z; X)$ and $I_{\phi}(Z; Y)$ (the third term is called interaction information and has a bit of a trickier interpretation, and I will leave that to this [[https://en.wikipedia.org/wiki/Interaction_information][wiki page]]). For a $Z,Y$ disentangled VAE, $I_{\phip}(\ZZ; \YY)$ is a property we would like to /minimise/ because we want them to encode completely independent concepts: that is, we would like $\YY$ to encode some kind of semantic content about the image (e.g. the label), and $\ZZ$ to capture every other source of variation. At the same time however, $I_{\phip}(\ZZ; \XX)$ is also in Eqn. (5d) and that is being minimised. This term is /constraining/ how much information about $\XX$ is encoded in $\ZZ$, and this in turn will negatively affect our ability to reconstruct the data well. 
+The two main terms of interest to us are $I_{\phi}(Z; X)$ and $I_{\phi}(Z; Y)$ (the third term is called interaction information and has a bit of a trickier interpretation, and I will leave that to this [[https://en.wikipedia.org/wiki/Interaction_information][wiki page]]). For a $Z,Y$ disentangled VAE, $I_{\phip}(\ZZ; \YY)$ is a property we would like to /minimise/ because we want them to encode completely independent concepts: that is, we would like $\YY$ to encode some kind of semantic content about the image (e.g. the label), and $\ZZ$ to capture every other source of variation. In practice, if there is too much mutual information between $\ZZ$ and $\YY$ then we can end up in a situation where $\YY$ gets ignored by $\qp$; that is, $\qp(\zz|\xx,\yy) \approx \qp(\zz|\xx,\yy')$ for all $\yy' \neq \yy$.
+
+At the same time, $I_{\phip}(\ZZ; \XX)$ is also in Eqn. (5d) and that is being minimised. This term is /constraining/ how much information about $\XX$ is encoded in $\ZZ$, and this in turn will negatively affect our ability to reconstruct the data well. 
 
 Also note that term $\circleone$ in Eqn. (9) is doing the opposite: maximising this term means maximising the conditional likelihood of $\xx|\zz$ with respect to samples $\zz$ from the inference process, and this requires that there be high mutual information between $\xx$ and $\zz$. This is because $\circleone$ is actually an approximation to the mutual information between $\XX$ and $\ZZ$:
 
@@ -275,12 +294,12 @@ I am calling Eqn. (6c) "approximate mutual information", and it would only be eq
 
 This puts us in a weird position: the more you want $Z$ and $Y$ to be independent (disentangled), the more you need to increase $\beta$ which subsequently constrains the amount of information about $X$ that is encoded in $Z$.
 
-I argue that even when [[When z and y are dependent][z and y are dependent]], $\beta$ should be large enough such that we reduce the mutual information between $\XX$ and $\ZZ$, so that we do not risk the inference network ignoring the $\YY$ variable. While Eqn. (5d) does also contain $I_{\phip}(\ZZ; \YY)$ this is with respect to the /inference process/ (hence the subscripted $\phip$), not with respect to the generative process $I_{\thetagr}(\ZZ; \YY)$. If we were to minimise $I_{\thetagr}(\ZZ; \YY)$ we would indeed be forcing $\ptgreen(\zz|\yy)$ to collapse to $p(\zz)$ for all $\yy$, and that is certainly not what we want.
-
-
-
+I argue that even when [[#sec_zy_dependent][z and y are dependent]], $\beta$ should be large enough such that we reduce the mutual information between $\XX$ and $\ZZ$, so that we do not risk the inference network ignoring the $\YY$ variable. While Eqn. (5d) does also contain $I_{\phip}(\ZZ; \YY)$ this is with respect to the /inference process/ (hence the subscripted $\phip$), not with respect to the generative process $I_{\thetagr}(\ZZ; \YY)$. If we were to minimise $I_{\thetagr}(\ZZ; \YY)$ we would indeed be forcing $\ptgreen(\zz|\yy)$ to collapse to $p(\zz)$ for all $\yy$, and that is certainly not what we want.
 
 * Experiments
+:PROPERTIES:
+:CUSTOM_ID: sec_experiments
+:END:
 
 The ground truth data distribution is $p(\xx,\yy) = \sum_{i=0,1} p(\xx|\yy)p(\yy=i)$, where $p(\xx|\yy=0) = \mathcal{N}()$ and $\pt(\xx|\yy=1) = \mathcal{N}()$.
 
@@ -290,12 +309,15 @@ The ground truth data distribution is $p(\xx,\yy) = \sum_{i=0,1} p(\xx|\yy)p(\yy
 <figure>
 <img class="figg" src="/assets/cvae/toy_dataset.png" width="500" alt="" /> 
 </figure>
-<figcaption>Figure 3: Illustration of the toy 2D dataset used. The dataset comprises of two Gaussians, each corresponding to one of two binary labels (y=0 or y=1).</figcaption>
+<figcaption><i>Figure 3: Illustration of the toy 2D dataset used. The dataset comprises of two Gaussians, each corresponding to one of two binary labels (y=0 or y=1).</i></figcaption>
 <br />
 </div>
 #+END_EXPORT
 
 ** When z and y are independent
+:PROPERTIES:
+:CUSTOM_ID: sec_exps_zy_independent
+:END:
 
 First we show $\beta = 0$. For each of the two subplots, we show the inference process (in purple), which corresponds to just the reconstruction. For instance, for a given $(\xx, \yy)$ from the data distribution, we sample $\zz \sim \qp(\zz|\xx,\yy)$ and then we reconstruct by sampling $\tilde{\xx} \sim \pt(\xx|\zz,\yy)$. The corresponding reconstruction error is shown in the title (the squared L2 norm between the original points and their reconstructions), and the error is essentially zero. However, things don't look so good for the generative process: for a given $\zz \sim p(\zz)$, we can either choose to decode with $\pt(\xx|\zz,\yy=0)$ or $\pt(\xx|\zz,\yy=1)$, and these more or less fall in the same region. This indicates that there is almost no difference which value of $\yy$ is chosen. What we would like to see is each group of green points (the green circles and crosses) being assigned to their respective clusters.
 
@@ -305,7 +327,7 @@ First we show $\beta = 0$. For each of the two subplots, we show the inference p
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta0.png" width="700" alt="" /> 
 </figure>
-<figcaption>Figure 3: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</figcaption>
+<figcaption><i>Figure 3: The case where p(z,y) = p(z)p(y). Here, there is no weight on the KL term, so reconstructions are good and there so is the inference process. However, samples from p(z,y=0) or p(z,y=1) (when decoded) fall in the same region (the green circles/crosses), so the generative process is bad.</i></figcaption>
 <br />
 </div>
 #+END_EXPORT
@@ -318,7 +340,7 @@ In Figure 4, if we choose $\beta = 0.01$, it looks as though some of the green p
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta-large.png" width="700" alt="" /> 
 </figure>
-<figcaption>Figure 5: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</figcaption>
+<figcaption><i>Figure 4: The case where p(z,y) = p(z)p(y). β = 0.01, so reconstructions are decent and there so is the inference process. However, samples from p(z,y=0) or p(z,y=1) (when decoded) fall in the same region (the green circles/crosses), so the generative process is bad.</i></figcaption>
 <br />
 </div>
 #+END_EXPORT
@@ -331,16 +353,23 @@ Finally, in Figure 5 for $\beta = 1$  we finally see that the green points get m
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta-large2.png" width="700" alt="" /> 
 </figure>
-<figcaption>Figure 6: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</figcaption>
+<figcaption><b>Figure 6: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</b></figcaption>
 <br />
 </div>
 #+END_EXPORT
 
 ** When z and y are dependent
+:PROPERTIES:
+:CUSTOM_ID: sec_exps_zy_dependent
+:END:
 
-TODO
+TODO.
 
-** more info
+
+** Tuning beta
+:PROPERTIES:
+:CUSTOM_ID: sec_exps_tuning_beta
+:END:
 
 While it may look as though choosing a value of $\beta$ in between $(0.01, 1)$ may alleviate these concerns and give us the right balance between a good generative and inference process, it is still not easy to achieve in practice. In my own experience -- for image datasets as 'toy' as SVHN or EMNIST -- achieving this balance was almost impossible, even for what was a state-of-the-art VAE at the time (the hierarchical VAE proposed by =child2020very=). In fact, to get an even remotely acceptable balance between the two I had to significantly increase the capacity of the VAE, so much that I was training VAEs with at least a 100M parameters. Not only was this bizare for such a supposedly simple set of datasets, I simply couldn't justify using that much GPU compute on something so (supposedly) trivial.
 
@@ -357,7 +386,7 @@ Here is an artifact from that generative modelling project. We were trying to do
 <figure>
 <img class="figg" src="/assets/cvae/content-style-swap.png" width="700" alt="" /> 
 </figure>
-<figcaption>Figure 7: An example of a (z,y)-disentangled conditional VAE trained on a modified version of SVHN.</figcaption>
+<figcaption><b>Figure 7: An example of a (z,y)-disentangled conditional VAE trained on a modified version of SVHN.</b></figcaption>
 <br />
 </div>
 #+END_EXPORT
@@ -403,10 +432,17 @@ Just like with the likelihood term, in practice we can just perform a one-sample
 
 where $\eta_{t} \sim \mathcal{N}(0, \epsilon_t)$, and $\zz_{T}$ should more or less be a draw from $\pt(\zz|\yy)$ for a reasonably large $T$.
 
+# https://writequit.org/articles/emacs-org-mode-generate-ids.html
 
 * Appendix
+:PROPERTIES:
+:CUSTOM_ID: sec_appendix
+:END:
 
-** Derivation of the Esmaeli's joint KL
+** Derivation of Esmaeli's joint KL
+:PROPERTIES:
+:CUSTOM_ID: sec_derivation
+:END:
 
 Here we derive the main equation presented in =esmaeili2018structured=. This corresponds to the unconditional VAE, without $\yy$ conditioning.
 
