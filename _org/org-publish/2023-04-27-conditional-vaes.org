@@ -1,62 +1,95 @@
 #+OPTIONS: toc:nil
+#+LATEX_HEADER: \definecolor{purple}{RGB}{122, 24, 128}
 #+LATEX_HEADER: \newcommand{\xx}{\bm{x}}
 #+LATEX_HEADER: \newcommand{\zz}{\bm{z}}
 #+LATEX_HEADER: \newcommand{\yy}{\bm{y}}
-#+LATEX_HEADER: \newcommand{\xxt}{\tilde{\bm{x}}}
+#+LATEX_HEADER: \newcommand{\XX}{\bm{X}}
+#+LATEX_HEADER: \newcommand{\ZZ}{\bm{Z}}
+#+LATEX_HEADER: \newcommand{\YY}{\bm{Y}}
+#+LATEX_HEADER: \newcommand{\xxt}{\tilde{\xx}}
 #+LATEX_HEADER: \newcommand{\yt}{\tilde{y}}
-#+LATEX_HEADER: \newcommand{\pt}{\textcolor{porange}{p_{\theta}}}
-#+LATEX_HEADER: \newcommand{\pto}{p_{\theta, \omega}}
+#+LATEX_HEADER: \newcommand{\pt}{\textcolor{green}{p_{\theta}}}
 #+LATEX_HEADER: \newcommand{\ft}{f_{\theta}}
 #+LATEX_HEADER: \newcommand{\argmax}{\text{argmax}}
 #+LATEX_HEADER: \newcommand{\Dtrain}{\mathcal{D}_{\text{train}}}
 #+LATEX_HEADER: \newcommand{\Dvalid}{\mathcal{D}_{\text{val}}}
-#+LATEX_HEADER: \newcommand{\tbest}{\theta^{*}}
-#+LATEX_HEADER: \newcommand{\wbest}{\omega^{*}}
-#+LATEX_HEADER: \newcommand{\sgn}{\text{sgn}}
 #+LATEX_HEADER: \newcommand{\circleone}{\textcircled{\small{1}}}
 #+LATEX_HEADER: \newcommand{\circletwo}{\textcircled{\small{2}}}
 #+LATEX_HEADER: \newcommand{\circlethree}{\textcircled{\small{3}}}
 #+LATEX_HEADER: \newcommand{\circlefour}{\textcircled{\small{4}}}
-#+LATEX_HEADER: \definecolor{qpink}{RGB}{122, 24, 128}
-#+LATEX_HEADER: \definecolor{porange}{RGB}{12, 120, 6}
-#+LATEX_HEADER: \newcommand{\pzgivenx}{\textcolor{porange}{p_{\theta}}(\zz|\xx)}
-#+LATEX_HEADER: \newcommand{\pxgivenz}{\textcolor{porange}{p_{\theta}}(\xx|\zz)}
-#+LATEX_HEADER: \newcommand{\qzgivenx}{\textcolor{qpink}{q_{\phi}}(\zz|\xx)}
-#+LATEX_HEADER: \newcommand{\qzgivenxi}{\textcolor{qpink}{q_{\phi}}(\zz|\zz^{(i)})}
-#+LATEX_HEADER: \newcommand{\qx}{\textcolor{qpink}{q}(\xx)}
-#+LATEX_HEADER: \newcommand{\qp}{\textcolor{qpink}{q_{\phi}}}
-#+LATEX_HEADER: \newcommand{\qpink}{\textcolor{qpink}{q}}
-#+LATEX_HEADER: \newcommand{\qpz}{\textcolor{qpink}{q_{\phi}(\zz)}}
-#+LATEX_HEADER: \newcommand{\pz}{\textcolor{porange}{p}(\zz)}
-#+LATEX_HEADER: \newcommand{\qz}{\textcolor{qpink}{q}(\zz)}
-#+LATEX_HEADER: \newcommand{\qzx}{\textcolor{qpink}{q}(\zz, \xx)}
+#+LATEX_HEADER: \newcommand{\pzgivenx}{\textcolor{green}{p_{\theta}}(\zz|\xx)}
+#+LATEX_HEADER: \newcommand{\pxgivenz}{\textcolor{green}{p_{\theta}}(\xx|\zz)}
+#+LATEX_HEADER: \newcommand{\qzgivenx}{\textcolor{purple}{q_{\phi}}(\zz|\xx)}
+#+LATEX_HEADER: \newcommand{\qzgivenxi}{\textcolor{purple}{q_{\phi}}(\zz|\zz^{(i)})}
+#+LATEX_HEADER: \newcommand{\qx}{\textcolor{purple}{q}(\xx)}
+#+LATEX_HEADER: \newcommand{\qp}{\textcolor{purple}{q_{\phi}}}
+#+LATEX_HEADER: \newcommand{\qpink}{\textcolor{purple}{q}}
+#+LATEX_HEADER: \newcommand{\pgreen}{\textcolor{green}{p}}
+#+LATEX_HEADER: \newcommand{\ptgreen}{\textcolor{green}{p_{\theta}}}
+#+LATEX_HEADER: \newcommand{\qpz}{\textcolor{purple}{q_{\phi}(\zz)}}
+#+LATEX_HEADER: \newcommand{\pz}{\textcolor{green}{p}(\zz)}
+#+LATEX_HEADER: \newcommand{\pzx}{\textcolor{green}{p_{\theta}}(\zz, \xx)}
+#+LATEX_HEADER: \newcommand{\qz}{\textcolor{purple}{q}(\zz)}
+#+LATEX_HEADER: \newcommand{\qzx}{\textcolor{purple}{q}(\zz, \xx)}
+#+LATEX_HEADER: \newcommand{\phip}{\color{purple}{\phi}}
+#+LATEX_HEADER: \newcommand{\thetagr}{\color{green}{\theta}}
 #+LATEX_HEADER: \newcommand{\kldiv}{ \mathcal{D}_{\text{KL}} }
-#+LATEX_HEADER: \newcommand{\elbo}{ \text{ELBO}(\textcolor{qpink}{\phi}, \textcolor{porange}{\theta}) }
+#+LATEX_HEADER: \newcommand{\elbo}{ \text{ELBO}(\textcolor{purple}{\phi}, \textcolor{green}{\theta}) }
+#+LATEX_HEADER: \newcommand{\myeq}[1]{\stackrel{\mathclap{\normalfont\mbox{#1}}}{=}}
 
 
 #+BEGIN_EXPORT html
 ---
-title: The (unspoken?) difficulties in training conditional VAEs
+title: Trials and tribulations of conditional variational autoencoders
 layout: default_latex
 ---
 
-<h1>Difficulties in training conditional VAEs</h1>
+<h1>Trials and tributions of conditional variational autoencoders</h1>
 
 <div hidden>
-<!-- This should be consistent with LATEX_HEADER -->
-$$\newcommand{\xx}{\boldsymbol{x}}$$ 
-$$\newcommand{\zz}{\boldsymbol{z}}$$ 
+<!-- 
+Differences to Latex header:
+- Replace \bm with \boldsymbol
+- Do not use textcolor here it doesn't work, have to use color  since mathjax likes that instead
+- Circles have to be replaced with (1), ... (4)
+-->
+$$\newcommand{\xx}{\boldsymbol{x}}$$
+$$\newcommand{\zz}{\boldsymbol{z}}$$
+$$\newcommand{\yy}{\boldsymbol{y}}$$
+$$\newcommand{\XX}{\boldsymbol{X}}$$
+$$\newcommand{\ZZ}{\boldsymbol{Z}}$$
+$$\newcommand{\YY}{\boldsymbol{Y}}$$
 $$\newcommand{\xxt}{\tilde{\boldsymbol{x}}}$$
 $$\newcommand{\yt}{\tilde{y}}$$
-$$\newcommand{\pt}{p_{\theta}}$$
+$$\newcommand{\pt}{\color{green}{p_{\theta}}}$$
 $$\newcommand{\pto}{p_{\theta, \omega}}$$
 $$\newcommand{\ft}{f_{\theta}}$$
 $$\newcommand{\argmax}{\text{argmax}}$$
 $$\newcommand{\Dtrain}{\mathcal{D}_{\text{train}}}$$
-$$\newcommand{\Dvalid}{\mathcal{D}_{\text{valid}}}$$
-$$\newcommand{\tbest}{\theta^{*}}$$
-$$\newcommand{\wbest}{\omega^{*}}$$
-$$\newcommand{\sgn}{\text{sgn}}$$
+$$\newcommand{\Dvalid}{\mathcal{D}_{\text{val}}}$$
+$$\newcommand{\circleone}{(a)}$$
+$$\newcommand{\circletwo}{(b)}$$
+$$\newcommand{\circlethree}{(c)}$$
+$$\newcommand{\circlefour}{(d)}$$
+$$\newcommand{\pzgivenx}{\color{green}{p_{\theta}}(\zz|\xx)}$$
+$$\newcommand{\pxgivenz}{\color{green}{p_{\theta}}(\xx|\zz)}$$
+$$\newcommand{\qzgivenx}{\color{purple}{q_{\phi}}(\zz|\xx)}$$
+$$\newcommand{\qzgivenxi}{\color{purple}{q_{\phi}}(\zz|\zz^{(i)})}$$
+$$\newcommand{\qx}{\color{purple}{q}(\xx)}$$
+$$\newcommand{\qp}{\color{purple}{q_{\phi}}}$$
+$$\newcommand{\qpink}{\color{purple}{q}}$$
+$$\newcommand{\pgreen}{\color{green}{p}}$$
+$$\newcommand{\ptgreen}{\color{green}{p_{\theta}}}$$
+$$\newcommand{\phip}{\color{purple}{\phi}}$$
+$$\newcommand{\thetagr}{\color{green}{\theta}}$$
+$$\newcommand{\qpz}{\color{purple}{q_{\phi}(\zz)}}$$
+$$\newcommand{\pz}{\color{green}{p}(\zz)}$$
+$$\newcommand{\pzx}{\color{green}{p_{\theta}}(\zz, \xx)}$$
+$$\newcommand{\qz}{\color{purple}{q}(\zz)}$$
+$$\newcommand{\qzx}{\color{purple}{q}(\zz, \xx)}$$
+$$\newcommand{\kldiv}{ \mathcal{D}_{\text{KL}} }$$
+$$\newcommand{\elbo}{ \text{ELBO}(\color{purple}{\phi}, \color{green}{\theta}) }$$
+$$\newcommand{\myeq}[1]{\overset{#1}{=}}$$
 </div>
 
 #+END_EXPORT
@@ -94,92 +127,355 @@ Independent C-VAE:
 
 #+TOC: headlines 2
 
-- Basic equation for VAE, talk about the assumptions
-  - either x and z can be cond. independent given x or not
-  - y -> z -> x => a conditional prior p(z|y)???
-- Then go to the 4 term equation
-
 * Introduction
 
-This is yet another excerpt from my upcoming PhD thesis. I actually wanted to write this several years ago after some really painful experiences I had with getting conditional VAEs to work on a generative modelling project I was working on. To be honest, I haven't seen any papers that deeply go into how troubling it is to train a C-VAE, much less one which takes the viewpoint of explaining these issues through the lens of mutual information estimation, which is what I want to show in this post.
+This is yet another excerpt from my upcoming PhD thesis. I actually wanted to write this several years ago after some really painful experiences I had with getting conditional VAEs to work on a generative modelling project I was working on. To the best of my knowledge, I haven't seen any paper that talks in depth about these difficulties and so I am quite happy to finally share them with everyone. While there are countless tutorials and blog posts out there on VAEs, this one is /mine/, and is a culmination of many years of theory and practice. I'm writing this because I would like /save you/ from the same frustrations and hair-ripping experiences that I had.
 
-I will save the basics on VAEs for another blog post. Otherwise, let's get started. The ELBO for a conditional VAE can be written as follows:
+# context: issue is y being ignored
+# content: can be resolved but at a cost to sample quality
+# conclusion: i will demontrate this theoretically and empirically
+In this post I want to shed light on a particular issue that that occurs when training a conditional VAE, and that is the network ignoring the latent variable $\yy$. Generally speaking, when we train a generative model that is being conditioned on /more than one latent variable/ (i.e. a $\zz$ and $\yy$), the model can end up ignoring one of the variables. For VAEs, this can be addressed but it comes at a significant cost to sample quality. In this post I will illustrate why this is the case through an alternative formulation of the ELBO, and I will also demonstrate this empirically on a simple 2D dataset where the conditioning variable $\yy$ denotes which Gaussian cluster $\xx$ belongs to.
 
-\begin{align} \label{eq:elbo_original}
-\elbo = \mathbb{E}_{\xx, \yy, \zz \sim \qp(\xx,\yy, \zz)}  \pt(\xx|\zz,\yy) + \text{KL}[ Q(Z|X) \| P(Z) ] \tag{1} 
-\end{align}
+I will save the basics for unconditional VAEs for another blog post. I should be publishing part one first, but I am a bit more passionate about this part, so that will come later. It suffices to say that VAEs are typically derived by expressing the log probabiltiy of the data $\log \pt(\xx)$ as a marginalisation over unknown latent variables for a learned joint distribution $\pt(\xx,\zz)$. Basically:
+- As per maximum likelihood estimation, we wish to find parameters $\theta$ such that we maximise the log likelihood $\pt(\xx)$ over the data. To learn useful features about the data we can express it was a marginalisation over an additional latent variable $\zz$.
+- The marginalisation is intractable, because $\pt(\xx) = \int_{\zz} \pt(\xx,\zz) d\zz$.
+- If one factorises $\pt(\xx,\zz)$ into $\pt(\zz|\xx)p(\xx)$ then the above marginalisation could be approximated with Monte Carlo. However, we don't know that $\pt(\zz|\xx)$ should be since we don't know the true latent variables $\zz$. If we try derive it via Bayes' rule, i.e. $\pt(\zz|\xx) = \pt(\xx|\zz)p(\zz) / Z$, then we just have the same problem of intractability since $Z$ is the normalising constant. Furthermore, it still isn't clear how $\zz$ to be obtained, since one conditional depends on the other in a circular fashion.
+- This issue can be resolved by substituting $\pt(\zz|\xx)$ with a separate network $\qp(\zz|\xx)$ and we derive a tractable objective for $\pt(\xx)$, which is called the evidence lower bound.
 
-It is useful to note that there are two ways in which the joint distribution for a VAE can be expressed, and these come down to the independence assumptions on $X, Y, Z$.  
+# In the next section I'll give a different perspective on how the ELBO can be derived. This perspective will help us reason about some of the difficulties inherent in training conditional VAEs. 
 
-If we assume that $p(\yy, \zz) = p(\zz)p(\yy)$ (i.e. they are independent) then:
 
-\begin{align} \label{eq:case1}
-\log p(\xx, \yy) & \geq \mathbb{E}_{q(\zz|\xx,\yy)}\big[ \log \frac{p(\xx | \yy, \zz)p(\yy,\zz)}{q(\zz|\xx,\yy)} \big] \nonumber \\
-& = \mathbb{E}_{q(\zz|\xx,\yy)}\big[ \log \frac{p(\xx | \yy, \zz)p(\yy)p(\zz)}{q(\zz|\xx,\yy)} \big] \nonumber \\
-& = \mathbb{E}_{q(\zz|\xx,\yy)}\big[ \log p(\xx|\yy,\zz) \big] + \mathbb{E}_{q(\zz|\xx,\yy)}\big[ \log \frac{p(\yy)p(\zz)}{q(\zz|\xx,\yy)} \big] \nonumber \\
-& = \mathbb{E}_{q}\big[ \log p(\xx|\yy,\zz) \big] + \mathbb{E}_{q}\big[ \log \frac{p(\zz)}{q(\zz|\xx,\yy)} \big] + \log p(\yy) \\
-& = \text{likelihood} - \text{KL} + \text{constant}. \nonumber
-\end{align}
 
-Note that the last term in Equation \ref{eq:case1} is constant because it is just the empirical distribution over $\yy$, which we typically do not learn with respect to the VAE parameters. Also note that the prior is $p(\zz)$, which is not that meaningful to us since it is not conditioned on $\yy$.
+** Two perspectives of the same network
 
-For this post we will assume an independent conditional structure, which means we assume $Z$ and $Y$ are independent. This is a useful assumption to make if we wish to optimise a variational autoencoder where those variables are disentangled and encode semantically different things. For instance, if $Y$ is some semantic label of $X$ (e.g. images of dogs in the wild) then we could think of $Y$ as encoding exactly that and $Z$ encoding sources of stochasticity such as background details and other things not related to dogs. The issues that I talk about here are still relevant to entangled VAEs, because the fundamental issue I want to speak about is that which involves training a VAE that is modelling the effect of two latent variables.
+Inspired by =esmaeili2018structured=, we can actually derive the ELBO for a VAE by framing the training objective as a minimisation over the KL divergence between two pathways, each encoded by their own joint distribution. Since we're also talking about conditional VAEs, we will be dealing with an additional latent variable $\yy$, but unlike $\zz$ we have labels for this. We assume that $\yy$ encodes some semantic meaningful label of interest, for instance the class of a digit, or the identity of an object. 
 
-Here, we are making use of two colours to denote two different pathways that are encoded by the VAE. The first pathway is the /inference process/, which is the following:
+Before we derive the KL, let us explain the two pathways encoded by a VAE. The first pathway is the /inference process/, denoted $\qp(\xx,\zz,\yy)$. It factorises into $\qp(\zz|\xx,\yy)q(\xx,\yy)$, and to obtain a sample $(\zz,\xx,\yy)$ from this joint we simply perform the following:
 
 \begin{align} \label{eq:inference}
-\xx, \yy & \sim \qpink(\xx, \yy) \tag{2a} \\
+\xx, \yy & \sim q(\xx, \yy) \ \ \text{(ground truth)} \tag{2a} \\
 \zz & \sim  \qp(\zz|\xx, \yy) \tag{2b}
 \end{align}
 
-where $\qpink(\xx,\yy)$ is the ground truth data distribution, and $\qzgivenx$ is our learnable variational posterior, subscripted with $\phi$. The inference process is concerned with extracting latent representations from actual samples from the data distribution. This is to be contrasted with the /generative/ process, in which samples are generated as the following:
+where $q(\xx,\yy)$ is the ground truth data distribution, and $\qzgivenx$ is our learnable variational posterior, subscripted with $\phi$. The inference process is concerned with extracting latent representations from actual samples from the data distribution. This is to be contrasted with the /generative/ process, in which samples are generated as the following:
 
 \begin{align} \label{eq:generative}
-\zz & \sim \pz \tag{3a} \\
-\yy & \sim p(\yy) \tag{3b} \\
-\xx &\sim \pt(\xx|\zz,\yy) \tag{3c}
+\zz, \yy & \sim p(\zz,\yy) \tag{3a} \ \ \text{(prior)} \\
+\xx &\sim \pt(\xx|\zz,\yy) \tag{3b},
 \end{align}
 
-This two-pronged view of VAEs lets us get comfortable with =esmaeili2018structured= (a really awesome paper), which frames the ELBO as a minimisation the KL divergence between the /generative model/ $\pz \pxgivenz$ and the /inference model/ $\qzgivenx \qx$. This new ELBO can be written as a sum of four terms:
+where $p(\zz,\yy)$ is prescribed beforehand. (We will talk a little more about this shortly.) 
+
+Since joint distribution for both processes are $\ptgreen(\xx,\zz,\yy)$ and $\qp(\xx,\zz,\yy)$ and we can derive their KL distribution as follows (note that it is framed as the argmax over the /negative KL/ to be consistent with =esmaeili2018structured=):
+
+\begin{align} \label{eq:case1}
+\argmax_{\color{green}{\theta}, \color{purple}{\phi}} & -\kldiv \Big[ \qp(\XX,\ZZ,\YY) \ \| \ \ptgreen(\XX,\ZZ,\YY) \Big] \\ 
+& = \mathbb{E}_{\qp(\xx,\zz,\yy)}\big[ \log \frac{\pt(\xx,\zz,\yy)}{\qp(\xx,\zz,\yy)} \big] \tag{4a} \\
+& = \mathbb{E}_{\qp(\zz|\xx,\yy)}\big[ \log \frac{\pt(\xx | \yy, \zz)p(\yy,\zz)}{\qp(\zz|\xx,\yy)} \big] - \mathbb{E}_{q(\xx,\yy)} \log q(\xx, \yy) \tag{4b} \\
+& = \mathbb{E}_{\qp(\xx,\zz,\yy)}\big[ \log \frac{\pt(\xx | \yy, \zz)p(\yy, \zz)}{\qp(\zz|\xx,\yy)} \big] - \text{const.} \tag{4c} \\
+& = \mathbb{E}_{\qp(\xx,\zz,\yy)} \big[ \log \pt(\xx|\yy,\zz) \big] + \mathbb{E}_{\qp(\zz|\xx,\yy)} \big[ \log \frac{p(\yy, \zz)}{\qp(\zz|\xx,\yy)} \big] - \text{const.} \tag{4d} \\
+& = \mathbb{E}_{\qp(\zz,\xx,\yy)}\big[ \log \pt(\xx|\yy,\zz) \big] - \kldiv\Big[ \qp(\ZZ|\XX, \YY) \| p(\ZZ,\YY)\Big] - \text{const.} \tag{4e}
+\end{align}
+# qp(zz,xx,yy) on second to last line, second term (KL) is making this whole thing not render... why??
+
+** When z and y are independent
+
+At this point, we have to specify what $p(\zz,\yy)$ is, and we have two options. The first is to assume that $p(\zz,\yy) = p(\zz)p(\yy)$, i.e. they are independent. This means that the joint distribution of the generative process factorises into:
+
+\begin{align}
+\pt(\xx,\zz,\yy) = \pt(\xx|\zz,\yy)p(\zz)p(\yy) \tag{5}
+\end{align}
+
+which leads us to the following ELBO:
+
+\begin{align}
+& -\kldiv \Big[ \qp(\XX,\ZZ,\YY) \ \| \ \ptgreen(\XX,\ZZ,\YY) \Big] \tag{6a} \\ 
+& \myeq{ind.} \mathbb{E}_{\qp(\zz,\xx,\yy)}\big[ \log \pt(\xx|\yy,\zz) \big] + \mathbb{E}_{\qp(\zz,\xx,\yy)}\big[ \log \frac{\pgreen(\zz)}{\qp(\zz|\xx,\yy)} \big] + \log \pgreen(\yy) \tag{6b} \\
+& = \text{likelihood} - \kldiv\Big[ \qp(\ZZ|\XX,\YY) \| p(\ZZ) \Big] + \text{constants}. \tag{6c}
+\end{align}
+
+$p(\yy)$ is some prior for $\yy$ but it falls out of the KL term and becomes a constant, so we need not worry about it. All that is left is to define a prior for $p(\zz)$, and in practice this is most often an isotropic Gaussian distribution. The graphical model for the generative process is also shown in Figure 1.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/cvae/cvae-independent.png" width="400" alt="" /> 
+</figure>
+<figcaption>Figure 1: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+Such an assumption may be useful to encode if we are seeking to learn /disentangled/ representations. For instance, if we were learning a conditional VAE over SVHN digits (where $y$ encodes the identity of the digit), perhaps we would like for our VAE to learn a $\zz$ that encodes /everything else/ in the image apart from the digit itself, for instance details in the background and the font, colour, etc. of the digit. This would make for a very controllable generative process where we are able to apply different styles $\zz$ to the same digit $\yy$, and vice versa.
+
+** When z and y are dependent
+
+ Otherwise, $\pgreen(\zz,\yy) = \pgreen(\zz|\yy)\pgreen(\yy)$ and $\pgreen(\zz|\yy)$ is the /conditional prior/. This means that the joint distribution factorises into:
+
+\begin{align}
+\pt(\xx,\zz,\yy) = \pt(\xx|\zz,\yy)p(\zz|\yy)p(\yy) \tag{7}
+\end{align}
+
+ The conditional prior can either be fixed (i.e. each possible value of $\yy$ gets mapped to a Gaussian), or it can be learned, in which case we denote it as $\pt(\zz|\yy)$. In this case the ELBO in Eqn. (4d) can be simplified down to:
+
+\begin{align}
+& -\kldiv \Big[ \qp(\XX,\ZZ,\YY) \ \| \ \ptgreen(\XX,\ZZ,\YY) \Big] \tag{8a} \\ 
+& \myeq{dep.} \mathbb{E}_{\qp(\zz,\xx,\yy)}\big[ \log \pt(\xx|\yy,\zz) \big] + \mathbb{E}_{\qp(\zz,\xx,\yy)}\big[ \log \frac{p(\zz|\yy)}{\qp(\zz|\xx,\yy)} \big] + \log p(\yy) \tag{8b} \\
+& = \text{likelihood} - \kldiv\Big[ \qp(\ZZ|\XX,\YY) \ \| \ p(\ZZ|\YY) \Big] + \text{constants}. \tag{8c}
+\end{align}
+
+Consequently, the graphical model for the generative process is shown in Figure 2.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/cvae/cvae-dependent.png" width="400" alt="" /> 
+</figure>
+<figcaption>Figure 2: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z|y)p(y).</figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+** A mutual information interpretation
+
+This new ELBO can be written as a sum of four terms (for the full derivation, see the appendix):
 
 \begin{align} \label{eq:elbo4}
-\mathcal{L}_{ \theta, \psi}(\bm{x}) = \mathbb{E}_{\qp(\xx,\yy,\zz)} \Big[ \underbrace{\log \frac{\cpxz{\pt(\xx|\zz, \yy)}}{\cpz{\pt(\xx)}}}_{\circleone} - \underbrace{\log \frac{\cqxz{\qp(\zz|\xx, \yy)}}{\cqz{\qp(\zz)}}}_{\circletwo} \Big] - \tag{4a} \\
-\underbrace{\text{KL}( \cqx{q(\xx)} \| \cpx{\pt(\xx)} )}_{\circlethree} - \underbrace{\text{KL}( \cqz{\qp(\zz)} \| \cpz{p(\bm{z})})}_{\circlefour} \tag{4b}
+\mathcal{L}_{ \theta, \psi}(\xx) = \mathbb{E}_{\qp(\xx,\yy,\zz)} \Big[ \underbrace{\log \frac{\pt(\xx|\zz,\yy)}{\pt(\xx)}}_{\circleone} - \underbrace{\log \frac{\qp(\zz|\xx, \yy)}{\qp(\zz)}}_{\circletwo} \Big] - \nonumber \\
+\underbrace{\kldiv( \qpink(X) \| \pt(X) )}_{\circlethree} - \underbrace{\kldiv( \qp(Z) \| \pgreen(Z))}_{  \circlefour} \tag{9}
 \end{align}
 
 As stated in =esmaeili2018structured=, the traditional ELBO term, which is a sum of a likelihood and KL regularisation term, can be written under this framework as $(\circleone+\circlethree) + \beta (\circletwo+\circlefour)$ (where $\beta$ is typically used to weight the KL term as in =burgess2018understanding=). =esmaeili2018structured= provides a very detailed explanation of all four of these terms and how they affect both the generative and inference model, as well as diagrams which illustrate what happens when each of the four terms are ommitted.
 
-For what I'd like to show in this post we can just focus on the first two terms: $\circleone$ and $\circletwo$. $\circleone$ encourages a bijective mapping between $\mathcal{X}$ and $\mathcal{Z}$ (i.e. each $\bm{x}$ should map to a unique $\bm{z}$), while $\circletwo$ is minimising the /mutual information/ between $X$ and the pair $(Z,Y)$, which we denote $I_{\phi}(Z; X, Y)$ (note the use of the semicolon here to separate out the two sets of variables). We can show this via the following derivations:
+For the rest of this section I would like to, as succinctly as I can, explain mathematically why it is painful to train variational autoencoders, especially conditional ones.
+
+For what I'd like to show in this post we can just focus on the first two terms: $\circleone$ and $\circletwo$. $\circleone$ encourages a bijective mapping between $\mathcal{X}$ and $\mathcal{Z}$ (i.e. each $\xx$ should map to a unique $\zz$), while $\circletwo$ is minimising the /mutual information/ between $X$ and the pair $(Z,Y)$, which we denote $I_{\phi}(Z; X, Y)$ (note the use of the semicolon here to separate out the two sets of variables). We can show this via the following derivations:
 
 \begin{align} \label{eq:expand2}
-\max_{\phi} \circletwo & = \max_{\phi} \mathbb{E}_{\cqxz{\qp(\bm{x},\bm{z},\bm{y})}} \Big[ -\log \frac{\cqxz{\qp(\bm{z}|\bm{x},\bm{y})}}{\cqz{\qp(\bm{z})}} \Big] \tag{5a}  \\
-& = \max_{\phi} -I_{\phi}(Z; X, Y) \tag{5b} \\
-& = \min_{\phi} I_{\phi}(Z; X, Y) \tag{5c} \\
-& = \min_{\phi} I_{\phi}(Z; X) + I_{\phi}(Z; Y) + I_{\phi}(X; Y; Z), \tag{5d}
+\max_{\phip} \circletwo & = \max_{\phip} \mathbb{E}_{\qp(\xx,\zz,\yy)} \Big[ -\log \frac{\qp(\zz|\xx,\yy)}{\qp(\zz)} \Big] \tag{5a}  \\
+& = \max_{\phip} -I_{\phip}(Z; X, Y) \tag{5b} \\
+& = \min_{\phip} I_{\phip}(Z; X, Y) \tag{5c} \\
+& = \min_{\phip} I_{\phip}(Z; X) + I_{\phip}(Z; Y) + I_{\phip}(X; Y; Z), \tag{5d}
 \end{align}
 
-where the two main terms of interest to us are $I_{\phi}(Z; X)$ and $I_{\phi}(Z; Y)$ (the third term is called interaction information and I don't think it's of significance here). The second term, $I_{\phi}(Z; Y)$ is a property we would like to /minimise/ for our $Z,Y$ disentangled VAE because we would like $Y$ to only capture the semantic content of the image (i.e. the label), and $Z$ to capture the stylistic features of the image (such as the background and font). Unfortunately, at the same time we're also minimising (by definition) the first term $I_{\phi}(Z; X)$, which is constraining how much information about $X$ is encoded in $Z$. This in turn will negatively affect our ability to reconstruct the data well. Also note that term (1) is doing the opposite:
+The two main terms of interest to us are $I_{\phi}(Z; X)$ and $I_{\phi}(Z; Y)$ (the third term is called interaction information and has a bit of a trickier interpretation, and I will leave that to this [[https://en.wikipedia.org/wiki/Interaction_information][wiki page]]). For a $Z,Y$ disentangled VAE, $I_{\phip}(\ZZ; \YY)$ is a property we would like to /minimise/ because we want them to encode completely independent concepts: that is, we would like $\YY$ to encode some kind of semantic content about the image (e.g. the label), and $\ZZ$ to capture every other source of variation. At the same time however, $I_{\phip}(\ZZ; \XX)$ is also in Eqn. (5d) and that is being minimised. This term is /constraining/ how much information about $\XX$ is encoded in $\ZZ$, and this in turn will negatively affect our ability to reconstruct the data well. 
+
+Also note that term $\circleone$ in Eqn. (9) is doing the opposite: maximising this term means maximising the conditional likelihood of $\xx|\zz$ with respect to samples $\zz$ from the inference process, and this requires that there be high mutual information between $\xx$ and $\zz$. This is because $\circleone$ is actually an approximation to the mutual information between $\XX$ and $\ZZ$:
+
 
 \begin{align}
-\max_{\theta} I_{\theta}(X; Z, Y) & = \max_{\theta} I_{\theta}(X; Z) + I_{\theta}(X; Y) + I_{\theta}(X; Z; Y) \\ 
-& = \mathbb{E}_{\pt(\bm{x},\bm{z},\bm{y})} \log \frac{\cpxz{\pt(\bm{x}|\bm{z},\bm{y})}}{\cpx{\pt(\bm{x})}} \\
-& \approx \underbrace{\mathbb{E}_{\cqxz{\qp(\bm{x},\bm{z},\bm{y})}} \log \frac{\cpxz{\pt(\bm{x}|\bm{z},\bm{y})}}{\cpx{\pt(\bm{x})}}}_{\circleone}
+\max_{\thetagr} I_{\thetagr}(\XX; \ZZ, \YY) & = \max_{\thetagr} I_{\thetagr}(\XX; \ZZ) + I_{\thetagr}(\XX; \YY) + I_{\thetagr}(\XX; \ZZ; \YY) \tag{6a} \\ 
+& = \mathbb{E}_{\pt(\xx,\zz,\yy)} \log \frac{\pt(\xx|\zz,\yy)}{\pt(\xx)} \tag{6b} \\
+& \approx \underbrace{\mathbb{E}_{\qp(\xx,\zz,\yy)} \log \frac{\pt(\xx|\zz,\yy)}{\pt(\xx)}}_{\circleone} \tag{6c}
 \end{align}
 
-I am calling this approximate MI, and it would only be equivalent to MI if p and q were equal.
+I am calling Eqn. (6c) "approximate mutual information", and it would only be equivalent to (6b) (the real mutual information) if the generative process $\ptgreen(\xx,\yy,\zz)$ was equivalent to $\qp(\xx,\yy,\zz)$. Rememeber that since the original ELBO formulation can be expressed as $\circleone + \circlethree + \beta(\circletwo + \circlefour)$, larger $\beta$ will put more weight on $\circletwo$, which corresponds to Eqn. (5d). Conversely, smaller $\beta$ will put more weight on $\circleone$, which corresponds to Eqn. (6c).
+
+This puts us in a weird position: the more you want $Z$ and $Y$ to be independent (disentangled), the more you need to increase $\beta$ which subsequently constrains the amount of information about $X$ that is encoded in $Z$.
+
+I argue that even when [[When z and y are dependent][z and y are dependent]], $\beta$ should be large enough such that we reduce the mutual information between $\XX$ and $\ZZ$, so that we do not risk the inference network ignoring the $\YY$ variable. While Eqn. (5d) does also contain $I_{\phip}(\ZZ; \YY)$ this is with respect to the /inference process/ (hence the subscripted $\phip$), not with respect to the generative process $I_{\thetagr}(\ZZ; \YY)$. If we were to minimise $I_{\thetagr}(\ZZ; \YY)$ we would indeed be forcing $\ptgreen(\zz|\yy)$ to collapse to $p(\zz)$ for all $\yy$, and that is certainly not what we want.
 
 
-This ends up in a weird dilemma of sorts: the more you want $Z$ and $Y$ to be disentangled, the more you need to constrain the amount of information about $X$ that is encoded in $Z$.
 
 
 * Experiments
 
----
+The ground truth data distribution is $p(\xx,\yy) = \sum_{i=0,1} p(\xx|\yy)p(\yy=i)$, where $p(\xx|\yy=0) = \mathcal{N}()$ and $\pt(\xx|\yy=1) = \mathcal{N}()$.
 
-Do we still have this issue in diffusion? They use classifier guidance, correct???
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/cvae/toy_dataset.png" width="500" alt="" /> 
+</figure>
+<figcaption>Figure 3: Illustration of the toy 2D dataset used. The dataset comprises of two Gaussians, each corresponding to one of two binary labels (y=0 or y=1).</figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+** When z and y are independent
+
+First we show $\beta = 0$. For each of the two subplots, we show the inference process (in purple), which corresponds to just the reconstruction. For instance, for a given $(\xx, \yy)$ from the data distribution, we sample $\zz \sim \qp(\zz|\xx,\yy)$ and then we reconstruct by sampling $\tilde{\xx} \sim \pt(\xx|\zz,\yy)$. The corresponding reconstruction error is shown in the title (the squared L2 norm between the original points and their reconstructions), and the error is essentially zero. However, things don't look so good for the generative process: for a given $\zz \sim p(\zz)$, we can either choose to decode with $\pt(\xx|\zz,\yy=0)$ or $\pt(\xx|\zz,\yy=1)$, and these more or less fall in the same region. This indicates that there is almost no difference which value of $\yy$ is chosen. What we would like to see is each group of green points (the green circles and crosses) being assigned to their respective clusters.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/cvae/vae_2d_beta0.png" width="700" alt="" /> 
+</figure>
+<figcaption>Figure 3: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+In Figure 4, if we choose $\beta = 0.01$, it looks as though some of the green points have been pulled to their respective cluster (i.e. green dots for the blue cluster $y=0$ and green crosses for the orange cluster $y=1$), but there is still some overlap between the two categories and we don't see any clear pattern of separation.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/cvae/vae_2d_beta-large.png" width="700" alt="" /> 
+</figure>
+<figcaption>Figure 5: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+Finally, in Figure 5 for $\beta = 1$  we finally see that the green points get matched to their respective clusters. Unfortunately, the inference process has degraded and reconstruction error has significantly increased as as result ($\approx 1.61$). We can also see this qualitatively for the orange cluster, where reconstructions lie more or less on a straight line instead of being more evenly distributed across the cluster like in Figure 3.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/cvae/vae_2d_beta-large2.png" width="700" alt="" /> 
+</figure>
+<figcaption>Figure 6: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+** When z and y are dependent
+
+TODO
+
+** more info
+
+While it may look as though choosing a value of $\beta$ in between $(0.01, 1)$ may alleviate these concerns and give us the right balance between a good generative and inference process, it is still not easy to achieve in practice. In my own experience -- for image datasets as 'toy' as SVHN or EMNIST -- achieving this balance was almost impossible, even for what was a state-of-the-art VAE at the time (the hierarchical VAE proposed by =child2020very=). In fact, to get an even remotely acceptable balance between the two I had to significantly increase the capacity of the VAE, so much that I was training VAEs with at least a 100M parameters. Not only was this bizare for such a supposedly simple set of datasets, I simply couldn't justify using that much GPU compute on something so (supposedly) trivial.
+
+Here is an artifact from that generative modelling project. We were trying to do style/content swaps for images from SVHN -- here, one can think of the content as being $\yy$, the identity of the SVHN digit. For each row:
+- =x1= is $\xx_1$, =x2= is $\xx_2$. Their corresponding labels are the digits, e.g. $\yy_1$ will be 18. $\yy_2$ depends on what column we are looking at.
+- =recon= is the reconstruction of $\xx_1$, as per the inference process.
+- =x1_c, x2_s= says: take the content of $\xx_1$ and the style from $\xx_2$. This means, we sample $\xx \sim \ptgreen(\xx|\yy_1,\zz_2)$, where $\yy_1$ is the identity of $\xx_1$, and $\zz_2 \sim \qp(\zz|\yy_2,\xx_2)$.
+- =x2_c, x1_s= says the opposite: take the /content/ of $\xx_2$ and the style from $\xx_1$. This means, we sample $\xx \sim \ptgreen(\xx|\yy_2,\zz_1)$, where $\yy_2$ is the identity of $\xx_2$, and $\zz_1 \sim \qp(\zz|\yy_1,\xx_1)$.
 
 
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/cvae/content-style-swap.png" width="700" alt="" /> 
+</figure>
+<figcaption>Figure 7: An example of a (z,y)-disentangled conditional VAE trained on a modified version of SVHN.</figcaption>
+<br />
+</div>
+#+END_EXPORT
 
 
+* Discussion
 
-if we would like to train a conditional VAE of the form $p(x,y,z)=...$. To see why, we expand this term into a summation of extra mutual information terms:
+How do we resolve this? I think one way we can do so...
+
+Consider the case: $p(\yy,\zz) = p(\zz|\yy)p(\yy)$. To re-iterate the ELBO from Eqn. (8b): 
+
+\begin{align}
+\mathbb{E}_{\qp(\zz,\xx,\yy)}\big[ \log \pt(\xx|\yy,\zz) \big] + \mathbb{E}_{\qp(\zz,\xx,\yy)}\big[ \log \frac{p(\zz|\yy)}{\qp(\zz|\xx,\yy)} \big] + \log p(\yy)
+\end{align}
+
+where we have a /conditional prior/ $p(\zz|\yy)$, and the same constant $\log p(\yy)$ term as we did earlier. As mentioned earlier in this post, I claimed that the issue of $\yy$ being ignored by the network inevitably happens whether you use the independent or dependent formulation, even though I only demonstrated experiments for the independent case. In the case of dependence, the degenerate case amounts to $p(\zz|\yy) \approx p(\zz)$, which means that $\yy$ has no effect on the conditional prior.
+
+What I propose is, instead of explicitly defining the conditional prior $\pt(\zz|\yy)$, derive it with the combination of Bayes' rule:
+
+\begin{align}
+\pt(\zz|\yy) = \frac{\pt(\yy|\zz)p(\zz)}{p(\yy)}
+\end{align}
+
+What is interesting is that this now becomes a function of $\ptgreen(\yy|\zz)$, which looks a lot like a classifier, i.e., it is tasked with predicting the distribution over $\yy$ given the latent code $\zz$. To see why this can potentially be useful, let us plug it into the numerator of the ELBO:
+
+\begin{align}
+& \mathbb{E}_{\qp(\zz,\xx,\yy)} \big[ \log \ptgreen(\xx|\yy,\zz) \big] + \mathbb{E}_{\qp(\zz,\xx,\yy)} \big[ \log \frac{p(\zz|\yy)}{\qp(\zz|\xx,\yy)} \big] \nonumber \\
+& = \text{likelihood} + \mathbb{E}_{\qp}\big[ \log \frac{p(\zz|\yy)}{q(\zz|\xx,\yy)} \big] \nonumber \\
+    & = \text{likelihood} + \mathbb{E}_{\qp}\big[ \log \frac{ \frac{\pt(\yy|\zz)p(\zz)}{p(\yy)} }{\qp(\zz|\xx,\yy)} \big] \ \ \text{(Bayes' rule)} \nonumber \\
+    & = \text{likelihood} + \mathbb{E}_{\qp}\big[ \log \frac{ \ptgreen(\yy|\zz)p(\zz) }{q(\zz|\xx,\yy)p(\yy)} \big] \nonumber \\
+    & = \text{likelihood} + \mathbb{E}_{\qp}\big[ \log \frac{ p(\zz) }{\qp(\zz|\xx,\yy)} \big] + \mathbb{E}_{\qp}\big[ \log \frac{ \pt(\yy|\zz) }{p(\yy)} \big] \nonumber \\
+    & = \text{likelihood} + \mathbb{E}_{\qp}\big[ \log \frac{ p(\zz) }{\qp(\zz|\xx,\yy)} \big] + \mathbb{E}_{\qp}\big[ \log \pt(\yy|\zz) \big] - \log p(\yy) \nonumber \\
+    & = \text{likelihood} - \underbrace{\text{KL}\big[ \qp(\ZZ|\XX,\YY) \| p(\ZZ) \big]}_{\text{uncond. prior}} + \underbrace{\mathbb{E}_{\qp}\big[ \log \pt(\yy|\zz) \big]}_{\text{classifier}} - \underbrace{\log p(\yy)}_{\text{constant}}.
+\end{align}
+
+Just like with the likelihood term, in practice we can just perform a one-sample approximation for the classifier term. How do we sample from the conditional prior $\pt(\zz|\yy)$ however? I propose the use of SGLD \cite{welling2011bayesian} for this. We would like to sample from $\pt(\zz|\yy) \propto \pt(\yy|\zz)p(\zz)$, and we can do this via an iterative process that computes gradients and injects noise:
+
+\begin{align}
+\zz_{0} & \sim p(\zz) = \mathcal{N}(0,1) \\
+\yy & \sim p(\yy) \\
+\zz_{t+1} & = \frac{\epsilon_t}{2} \Big( \nabla_{\zz} \log p(\zz) + \nabla_{\zz} \log \pt(\yy|\zz) \Big) + \eta_{t}, \ \ t \in \{1, \dots, T\}
+\end{align}
+
+where $\eta_{t} \sim \mathcal{N}(0, \epsilon_t)$, and $\zz_{T}$ should more or less be a draw from $\pt(\zz|\yy)$ for a reasonably large $T$.
+
+
+* Appendix
+
+** Derivation of the Esmaeli's joint KL
+
+Here we derive the main equation presented in =esmaeili2018structured=. This corresponds to the unconditional VAE, without $\yy$ conditioning.
+
+\begin{align}
+\color{green}{\theta}, \color{purple}{\phi} & = \argmax_{\color{green}{\theta}, \color{purple}{\phi}} -\mathcal{D}_{\text{KL}}\Big[ \qp(\ZZ,\XX) || \pgreen(\ZZ, \XX) \Big] \tag{10a} \\
+& = \mathbb{E}_{\qzx} \Big[ \log \frac{\pzx}{\qzgivenx q(\xx)} \Big] \tag{10b} \\
+& = \mathbb{E}_{\qzx} \Big[ \log \frac{\pxgivenz p(\zz)}{\qzgivenx q(\xx)} \Big] \tag{10c} \\
+&  = \mathbb{E}_{\qzx} \Big[ \log \frac{\pxgivenz p(\zz)}{\qzgivenx q(\xx)} \cdot \frac{\ptgreen(\xx)}{\ptgreen(\xx)} \cdot \frac{\qp(\zz)}{\qp(\zz)} \Big] \tag{10d} \\
+& = \mathbb{E}_{\qzx} \Big[ \log \frac{\pxgivenz}{\ptgreen(\xx)} + \log \frac{\qp(\zz)}{\qzgivenx} + \log \frac{\ptgreen(\xx)}{q(\xx)} + \log \frac{p(\zz)}{\qp(\zz)} \Big] \tag{10e} \\
+& = \mathbb{E}_{\qzx} \Big[ \log \frac{\pxgivenz}{\ptgreen(\xx)} + \log \frac{\qp(\zz)}{\qzgivenx} \Big] + \mathbb{E}_{q(\xx)} \Big[ \log \frac{\ptgreen(\xx)}{q(\xx)} \Big] + \\
+& \ \ \ \ \mathbb{E}_{\qp(\zz)} \Big[ \log \frac{p(\zz)}{\qp(\zz)} \Big]  \tag{10f} \\
+& = \mathbb{E}_{\qzx} \Big[ \underbrace{\log \frac{\pxgivenz}{\ptgreen(\xx)}}_{\circleone} - \underbrace{\log \frac{\qzgivenx}{\qp(\zz)}}_{\circletwo} \Big] - \underbrace{\kldiv\Big[ q(\XX) \| \ptgreen(\XX) \Big]}_{\circlethree} - \\
+& \ \ \ \ \ \underbrace{\kldiv\Big[ \qp(\ZZ) \| p(\ZZ)}_{\circlefour} \Big], \tag{10g}
+\end{align}
+
+where:
+- $\ptgreen(\xx) = \int_{\zz} \ptgreen(\xx|\zz)p(\zz) d \zz$, the marginal distribution of the data /with respect/ to the /generative process/. This is also called the /marginal likelihood/.
+- $\qp(\zz) = \int_{\xx} \qp(\zz|\xx)q(\xx) d\xx$ , the marginal distribution over the latent code /with respect to the inference process/. This is also called the /inference marginal/.
+
+** Conditional case
+
+We can derive the conditional case by adding $\yy$ wherever it is necessary. Starting from Eqn. (10f), we derive the following:
+
+\begin{align}
+& \mathbb{E}_{\qp(\zz,\xx,\yy)} \Big[ \log \frac{\ptgreen(\xx|\zz,\yy)}{\ptgreen(\xx)} - \log \frac{\qp(\zz)}{\qp(\zz|\xx,\yy)} \Big] + \mathbb{E}_{q(\xx)} \Big[ \log \frac{\ptgreen(\xx)}{q(\xx)} \Big] + \mathbb{E}_{\qp(\zz,\yy)} \Big[ \log \frac{p(\zz,\yy)}{\qp(\zz)} \Big]. \tag{11a}
+\end{align}
+
+We can subsequently refine this equation depending on the factorisation of $p(\zz,\yy)$, which we do below.
+
+*** *z and y are independent*
+
+For the sake of space, I will simply use $\qp$ to refer to the full joint distribution $\qp(\zz,\xx, \yy)$. For $p(\zz,\yy) = p(\zz)p(\yy)$, we get:
+
+\begin{align}
+& \mathbb{E}_{\qp} \Big[ \log \frac{\ptgreen(\xx|\zz,\yy)}{\ptgreen(\xx)} - \log \frac{\qp(\zz)}{\qp(\zz|\xx,\yy)} \Big] + \mathbb{E}_{q(\xx)} \Big[ \log \frac{\ptgreen(\xx)}{q(\xx)} \Big] + \\
+& \ \ \ \ \ \mathbb{E}_{\qp(\zz,\yy)} \Big[ \log \frac{p(\zz)}{\qp(\zz)} + \log p(\yy) \Big] \tag{12a} \\
+& = \mathbb{E}_{\qp} \Big[ \log \frac{\ptgreen(\xx|\zz,\yy)}{\ptgreen(\xx)} - \log \frac{\qp(\zz)}{\qp(\zz|\xx,\yy)} \Big] + \mathbb{E}_{q(\xx)} \Big[ \log \frac{\ptgreen(\xx)}{q(\xx)} \Big] + \\
+& \ \ \ \ \ \mathbb{E}_{\qp(\zz)} \Big[ \log \frac{p(\zz)}{\qp(\zz)} \Big] + \mathbb{E}_{q(\yy)} \log p(\yy) \tag{12b} \\
+
+& = \mathbb{E}_{\qp} \Big[ \underbrace{\log \frac{\ptgreen(\xx|\zz,\yy)}{\ptgreen(\xx)}}_{\circleone} - \underbrace{\log \frac{\qp(\zz)}{\qp(\zz|\xx,\yy)}}_{\circletwo} \Big] - \underbrace{\kldiv\Big[ q(\XX) \| \ptgreen(\XX) \Big]}_{\circlethree} \\
+& \ \ \ \ \ - \underbrace{\kldiv\Big[ \qp(\ZZ) \| p(\ZZ)}_{\circlefour} \Big] + \text{const.} \tag{12c}
+\end{align}
+
+Here, $p(\yy)$ can fall out of the optimisation since it's just a constant. However, since it's a prior we can set it to whatever it is we want it to be, either the actual empirical distribution of $\yy$ for our dataset or another distribution.
+
+*** *z and y are dependent*
+
+Again, starting from Eqn. (10f), if we assume that $p(\zz,\yy) = p(\zz|\yy)p(\yy)$ then:
+
+\begin{align}
+& \mathbb{E}_{\qp(\zz,\xx,\yy)} \Big[ \log \frac{\ptgreen(\xx|\zz,\yy)}{\ptgreen(\xx)} - \log \frac{\qp(\zz)}{\qp(\zz|\xx,\yy)} \Big] + \mathbb{E}_{q(\xx)} \Big[ \log \frac{\ptgreen(\xx)}{q(\xx)} \Big] + \\
+& \ \ \ \ \mathbb{E}_{\qp(\zz,\yy)} \Big[ \log \frac{p(\zz|\yy)p(\yy)}{\qp(\zz)} \Big] \tag{13a} \\
+& \mathbb{E}_{\qp(\zz,\xx,\yy)} \Big[ \log \frac{\ptgreen(\xx|\zz,\yy)}{\ptgreen(\xx)} - \log \frac{\qp(\zz)}{\qp(\zz|\xx,\yy)} \Big] + \mathbb{E}_{q(\xx)} \Big[ \log \frac{\ptgreen(\xx)}{q(\xx)} \Big] + \\
+& \ \ \ \ \mathbb{E}_{\qp(\zz,\yy)} \Big[ \log \frac{p(\zz|\yy)}{\qp(\zz)} + \log p(\yy) \Big]. \tag{13b} \\
+& \mathbb{E}_{\qp(\zz,\xx,\yy)} \Big[ \log \frac{\ptgreen(\xx|\zz,\yy)}{\ptgreen(\xx)} - \log \frac{\qp(\zz)}{\qp(\zz|\xx,\yy)} \Big] - \kldiv\Big[ q(\XX) \| \ptgreen(\XX) \Big] + \\
+& \ \ \ \ -\kldiv \Big[ \qp(\ZZ) \| p(\ZZ|\YY) \Big] + \mathbb{E}_{q(\yy)} \log p(\yy). \tag{13c} \\
+\end{align}
+
+Here, we need to choose what $p(\zz|\yy)$ is. Either it can be a fixed distribution (i.e. a distribution is pre-assigned for each possible value of $\yy$), or it could also be /learned/, in which case we can denote it as $\ptgreen(\zz|\yy)$.
+
+# It is useful to note that there are two ways in which the joint distribution for a VAE can be expressed, and these come down to the independence assumptions on $X, Y, Z$.  
+# If we assume that the ground truth $p(\yy, \zz) = p(\zz)p(\yy)$ 
+# Here, the KL term is between $\qp(\zz|\xx,\yy)$ and $\pgreen(z)$, and $\pgreen(y)$ falls out as one of the constants. Despite this, $\pgreen(\yy)$ can take on one of two interpretations: either it is a prior that we set just like $\pgreen(\zz)$, or it is the empirical distribution over $\yy$'s 
+# For this post we will assume an independent conditional structure, which means we assume $Z$ and $Y$ are independent. This is a useful assumption to make if we wish to optimise a variational autoencoder where those variables are disentangled and encode semantically different things. For instance, if $Y$ is some semantic label of $X$ (e.g. images of dogs in the wild) then we could think of $Y$ as encoding exactly that and $Z$ encoding sources of stochasticity such as background details and other things not related to dogs. The issues that I talk about here are still relevant to entangled VAEs, because the fundamental issue I want to speak about is that which involves training a VAE that is modelling the effect of two latent variables.
+
+* References
+
+- =beckham2023thesis= Beckham, C. (2023). PhD thesis dissertation. (Work in progress.)
+- =esmaeili2018structured= Esmaeili, B., Wu, H., Jain, S., Bozkurt, A., Siddharth, N., Paige, B., Brooks, D. H., … (2018). Structured disentangled representations. arXiv preprint arXiv:1804.02086, (), . TODO fix citation
+- =burgess2018understanding= Burgess, C. P., Higgins, I., Pal, A., Matthey, L., Watters, N., Desjardins, G., & Lerchner, A. (2018). Understanding disentangling in beta-VAE. arXiv preprint arXiv:1804.03599, (), .
+- =child2020very= Child, R. (2020). Very deep VAEs generalize autoregressive models
+  and can outperform them on images. International Conference on Learning Representations, (), .
