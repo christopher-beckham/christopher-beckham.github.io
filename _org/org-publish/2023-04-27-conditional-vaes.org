@@ -332,7 +332,7 @@ and this can make it difficult for us to perform different kinds of 'controllabl
 But due to Eqn. (11) the new $\yy'$ won't make any difference whatsoever. We could measure the extent to how bad this is by simply computing (for a fixed $\xx$ and $\zz$):
 
 \begin{align}
-\mathbb{E}_{\yy, \yy' \sim p(\yy)} (\pt(\xx|\yy,\zz) - \pt(\xx|\yy',\zz))^{2},
+\mathbb{E}_{\yy, \yy' \sim p(\yy)} \| \pt(\xx|\yy,\zz) - \pt(\xx|\yy',\zz) \|^{2},
 \end{align}
 
 that is, an average over the difference in the decoder for different pairs of $\yy$. If on average the pairs are have very small L2 distance then this indicates that $\yy$ has very little influence on the generative model $\pt$.
@@ -416,22 +416,27 @@ i.e. the average of $\qp(\zz|\xx,\yy)$ with respect to $(\xx,\yy)$'s sampled fro
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta0_zspace.png" width="700" alt="" /> 
 </figure>
-<figcaption><b><i>Figure 3b: beta = 0, showing samples in z space, which is also two-dimensional. The prior distribution p(z) is shown as the green sphere. The radius of the sphere corresponds to one standard deviation.</i></b></figcaption>
+<figcaption><b><i>Figure 3b: β = 0, showing samples in z space, which is also two-dimensional. The prior distribution p(z) is shown as the green sphere. We can see that there significant mutual information between Z and Y here, and this is because it is easy to tell apart the two clusters.</i></b></figcaption>
 <br />
 </div>
 #+END_EXPORT
 
-
-In Figure 4, if we choose $\beta = 0.01$, it looks as though some of the green points have been pulled to their respective cluster but there is still some overlap between the two categories and we don't see any clear pattern of separation. At the very least, sample diversity is superior to that in Figure 1 because at least the green points are sufficiently spread out to cover the two clusters of the data. The reconstruction error for the inference process has only taken a minor hit, increasing from roughly zero to $\approx 0.02$.
+In Figure 4a, if we choose $\beta = 0.01$, it looks as though some of the green points have been pulled to their respective cluster but there is still some overlap between the two categories and we don't see any clear pattern of separation. At the very least, sample diversity is superior to that in Figure 1 because at least the green points are sufficiently spread out to cover the two clusters of the data. The reconstruction error for the inference process has only taken a minor hit, increasing from roughly zero to $\approx 0.02$. In Figure 4b, we can see that the marginal $\qp(\zz)$ is a little closer to the prior. Compared to Figure 3b, the clusters corresponding to both $\yy$'s are mostly intact, which indicates that there is still a decent amount of information about them embedded in $\ZZ$.
 
 #+BEGIN_EXPORT html
 <div id="images">
 <br />
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta-large.png" width="700" alt="" /> 
+<figcaption><b><i>(Figure 4a, top) Reconstructions are decent and there so is the inference process. Samples from the generative process still do not appear to respect their clusters but unlike Figure 1 we see an acceptable level of sample diversity here, since those samples are covering more regions of the data distribution. Overall, with respect to the generative process, sample quality is bad but sample diversity is good.</i></b></figcaption>
 </figure>
-<figcaption><b><i>Figure 4: The case where p(z,y) = p(z)p(y). β = 0.01, so reconstructions are decent and there so is the inference process. Samples from the generative process still do not appear to respect their clusters but unlike Figure 1 we see an acceptable level of sample diversity here, since those samples are covering more regions of the data distribution. Overall, with respect to the generative process, sample quality is bad but sample diversity is good.</i></b></figcaption>
+
+<figure>
+<img class="figg" src="/assets/cvae/vae_2d_beta0.01_zspace.png" width="700" alt="" /> 
+<figcaption><b><i> (Figure 4b, bottom) Samples from q(z) are somewhat close to the prior p(z). We can see that there is significant mutual information between Z and Y here, and this is because it is easy to tell apart the two clusters.</i></b></figcaption>
+</figure>
 <br />
+
 </div>
 #+END_EXPORT
 
@@ -443,7 +448,12 @@ Finally, in Figure 5 for $\beta = 1$  we finally see that the green points get m
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta-large2.png" width="700" alt="" /> 
 </figure>
-<figcaption><b><i>Figure 6: Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</i></b></figcaption>
+<figcaption><b><i>(Figure 5a, top): Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</i></b></figcaption>
+
+<figure>
+<img class="figg" src="/assets/cvae/vae_2d_beta1_zspace.png" width="700" alt="" /> 
+<figcaption><b><i> (Figure 5b, bottom) Samples from q(z) are somewhat close to the prior p(z). TODO write clusters.</i></b></figcaption>
+</figure>
 <br />
 </div>
 #+END_EXPORT
@@ -469,17 +479,17 @@ In Sec. [[#elbo_dilemma]] we discussed how the 'ELBO dilemma' may also make this
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta0_swapped.png" width="700" alt="" />
 </figure>
-<figcaption><b><i>Figure 7a: beta = 0. Label swapping doesn't seem to do anything.</i></b></figcaption>
+<figcaption><b><i>Figure 7a: β = 0. Label swapping doesn't seem to do anything.</i></b></figcaption>
 <br />
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta-large_swapped.png" width="700" alt="" />
 </figure>
-<figcaption><b><i>Figure 7b: Label swapping has an effect but sometimes samples lie in between the two clusters.</i></b></figcaption>
+<figcaption><b><i>Figure 7b: β = 0.01. Label swapping has an effect but sometimes samples lie in between the two clusters.</i></b></figcaption>
 <br />
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta-large2_swapped.png" width="700" alt="" />
 </figure>
-<figcaption><b><i>Figure 7c: Label swapping looks like it works now, albeit at the cost of sample diversity for the right-most cluster.</i></b></figcaption>
+<figcaption><b><i>Figure 7c: β = 1.0. Label swapping looks like it works now, albeit at the cost of sample diversity for the right-most cluster.</i></b></figcaption>
 <br />
 </div>
 #+END_EXPORT
@@ -503,17 +513,17 @@ In Figures 8(a,b,c) we produce similar plots to that of Sec. [[#sec_exps_zy_inde
 <figure>
 <img class="figg" src="/assets/cvae/cond_prior/vae_2d_beta0.png" width="700" alt="" />
 </figure>
-<figcaption><b><i>Figure 8a: beta = 0 with the learned conditional prior.</i></b></figcaption>
+<figcaption><b><i>Figure 8a: β = 0 with the learned conditional prior.</i></b></figcaption>
 <br />
 <figure>
 <img class="figg" src="/assets/cvae/cond_prior/vae_2d_beta0.01.png" width="700" alt="" />
 </figure>
-<figcaption><b><i>Figure 8b: beta = 0.01 with the learned conditional prior.</i></b></figcaption>
+<figcaption><b><i>Figure 8b: β = 0.01 with the learned conditional prior.</i></b></figcaption>
 <br />
 <figure>
 <img class="figg" src="/assets/cvae/cond_prior/vae_2d_beta1.png" width="700" alt="" />
 </figure>
-<figcaption><b><i>Figure 8c: beta = 1.0 with the learned conditional prior.</i></b></figcaption>
+<figcaption><b><i>Figure 8c: β = 1.0 with the learned conditional prior.</i></b></figcaption>
 <br />
 </div>
 #+END_EXPORT
