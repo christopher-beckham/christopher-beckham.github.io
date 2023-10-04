@@ -1,7 +1,7 @@
 ---
 title: Vicinal distributions as a statistical view on data augmentation
+tldr: An excerpt from my PhD thesis. I introduce data augmentation through the lens of vicinal distributions, and introduce mixup augmentation as a multi-sample generalisation of it.
 layout: default_latex
-tldr: An excerpt of my upcoming PhD thesis. I introduce data augmentation through the lens of vicinal distributions, and introduce mixup augmentation as a multi-sample generalisation of it.
 ---
 
 <h1>Vicinal distributions as a statistical view on data augmentation</h1>
@@ -15,6 +15,7 @@ $$\newcommand{\pt}{p_{\theta}}$$
 $$\newcommand{\pto}{p_{\theta, \omega}}$$
 $$\newcommand{\ft}{f_{\theta}}$$
 $$\newcommand{\argmax}{\text{argmax}}$$
+$$\newcommand{\argmin}{\text{argmin}}$$
 $$\newcommand{\Dtrain}{\mathcal{D}_{\text{train}}}$$
 $$\newcommand{\Dvalid}{\mathcal{D}_{\text{valid}}}$$
 $$\newcommand{\tbest}{\theta^{*}}$$
@@ -71,9 +72,14 @@ In the second line of the above we are approximating sampling from the ground tr
 </p>
 
 <p>
-This expression can be derived as the result of a more formal derivation which expresses the above as minimising the <span class="underline">KL divergence</span> between the ground truth distribution \(p(\xx, y)\) and the <span class="underline">learned</span> distribution \(\pt(\xx, y)\), which can be factorised into \(\pt(\xx, y) = \pt(y|\xx)p(\xx)\).
+This expression can be derived as the result of a more formal derivation which expresses the above as minimising the <span class="underline">KL divergence</span> between the ground truth distribution \(p(\xx, y)\) and the <span class="underline">learned</span> distribution \(\pt(\xx, y)\), which can be factorised into \(\pt(\xx, y) = \pt(y|\xx)p(\xx)\). For a less probabilistic interpretation however, one can also consider viewing Equation (1) through the lens of <i>empirical risk minimisation</i> (ERM) <code>vapnik1991principles</code>, which assumes that one wishes to <i>minimise</i> a particular loss function \(\ell(\hat{y}, y)\), which doesn't necessarily need to have a probabilistic interpretation attached to it:
 </p>
+
+\begin{align}
+\tbest & = \argmin_{\theta} \ \mathbb{E}_{\xx,y \sim p(\xx,y)} \ \ell(\ft(\xx), y). \tag{1c}
+\end{align}
 </div>
+
 
 <div id="outline-container-org4634d2e" class="outline-3">
 <h3 id="org4634d2e"><span class="section-number-3">1.1.</span> Parameterisation of \(\pt(y|\xx)\)</h3>
@@ -135,7 +141,35 @@ It is also possible to consider other validation metrics to measure over the val
 <h2 id="org00f564e"><span class="section-number-2">2.</span> Vicinal distributions</h2>
 <div class="outline-text-2" id="text-2">
 <p>
-It is extremely common to use some form of data augmentation to improve generalisation, which in turn is measured with the validation set. For instance, for training on images there are a wide range of augmentation tricks at our disposal, with some examples including horizontal and vertical flips, random crops, and colour jittering. These tricks are usually applied stochastically so that as much variation is presented to the learning algorithm as possible.
+It is extremely common to use some form of data augmentation to improve generalisation, which in turn can be measured with the validation set via Equation (3). If training on an augmented version of the training set gives rise to a better mean log likelihood on the validation set, then this is a good sign that it has helped our model to generalise.
+</p>
+
+<p>
+Data augmentation comes in various shapes and sizes. At its simplest form, data augmentation can be as simple as injecting some form of noise into the input (e.g. Gaussian noise), or randomly setting certain features of the input to zero (e.g. dropout). Since most of the work in this thesis concerns computer vision, we can also consider data augmentation schemes that leverage image transformation algorithms. Some examples include horizontal and vertical flips, random crops, random rotations, and colour jittering. Some of these types have very mathematical interpretations (e.g. X), but the more intuitive explanation is that, in the general sense, these transformations can be thought of as either increasing the robustness of the network &#x2013; that is, increasing its resilience to novel or malformed inputs &#x2013; or conferring certain properties of smoothness, which also helps with generalisation. While some of these schemes can produce vastly different images, they tend to have the following properties:
+</p>
+<ul class="org-ul">
+<li>(1) They are highly stochastic, so that the number of possible virtual examples are maximised. Deep neural networks are high variance estimators (meaning that they are sensitive to different subsamples of the data distribution), so adding virtual examples can act to smooth out the input structure learned by the network.</li>
+<li>(2) They apply 'reasonable' amounts of perturbation, so as to not destroy the 'signal' in the input or be too far from the data distribution. One can imagine that if the signal-to-noise ratio is too small on average then the network can end up <i>underfitting</i> the data.</li>
+<li>(3) Are designed to not bias the function in the wrong way. For instance, if we are training a computer vision classifier and inputs have an <i>extremely</i> high probability of being flipped upside down, then we would expect the classifier to mostly perform well on upside-down images, but this isn't representative of most photos that one would see 'in the wild'.</li>
+</ul>
+
+<p>
+In Figure X we show examples of both Gaussian input perturbations as well as input dropout on the MNIST dataset. &#x2026; The key idea is that the points should be 'close' to the real data, which leads us to formally define <i>vicinal distributions</i>.
+</p>
+
+
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/thesis-vicinal-dists/mnist_gaussian_noise.png" alt="" /> 
+</figure>
+<figcaption>Figure X: Example of Gaussian noise perturbations on MNIST. For each example, the noise vector added is of the form N(0, σ), and σ is shown in each subfigure.</figcaption>
+<br />
+</div>
+
+<p>
+These tricks are usually applied stochastically so that as much variation is presented to the learning algorithm as possible. TODO: data augmentation figure??
 </p>
 
 <p>
@@ -243,7 +277,11 @@ and these are used in conjunction with Equation (2) to define the training loss.
 </div>
 
 <p>
-In Figure 2 we show examples of mixup-produced images between two images, one of a cat and one of a dog. The images are produced with \(\lambda\xx_{\text{dog}} + (1-\lambda)\xx_{\text{cat}}\), and the values of \(\lambda\) are shown above each image. Despite the fact that most of these images do not look representative of the data distribution &#x2013; with the smaller-weighted image 'ghosting' the higher weighted image &#x2013; there is ample empirical evidence to suggest such images work well in practice as a form of data augmentation. One intuitive explanation for this is that the interpolated label \(\yt\) does confer useful information given the interpolated image \(\xxt\), even if it doesn't look plausible. For instance, if we mix an image of a cat and a dog with a mixing ratio of 50% (i.e. \(\lambda = 0.5\)) then it makes sense for the corresponding label to be \([0.5, 0.5]\), rather than either \([1,0]\) or \([0,1]\). Another intuition is that mixup acts as a form of regularisation that specifically encourages \(\ft\) to behave linearly in between training examples, and this is qualitatively demonstrated in <code>zhang</code> for toy datasets in 2D. While these explanations may not be sufficient for the more mathematically inclined reader, we defer them to <code>carratino2020mixup</code>, which presents a rigorous theoretical analysis into why mixup works well in practice.
+In Figure 2 we show examples of mixup-produced images between two images, one of a cat and one of a dog. The images are produced with \(\lambda\xx_{\text{dog}} + (1-\lambda)\xx_{\text{cat}}\), and the values of \(\lambda\) are shown above each image. 
+</p>
+
+<p>
+Despite the fact that most of these images do not look representative of the data distribution &#x2013; with the smaller-weighted image 'ghosting' the higher weighted image &#x2013; there is ample empirical evidence to suggest such images work well in practice as a form of data augmentation. One intuitive explanation for this is that the interpolated label \(\yt\) does confer useful information given the interpolated image \(\xxt\), even if it doesn't look plausible. For instance, if we mix an image of a cat and a dog with a mixing ratio of 50% (i.e. \(\lambda = 0.5\)) then it makes sense for the corresponding label to be \([0.5, 0.5]\), rather than either \([1,0]\) or \([0,1]\). Another intuition is that mixup acts as a form of regularisation that specifically encourages \(\ft\) to behave linearly in between training examples, and this is qualitatively demonstrated in <code>zhang</code> for toy datasets in 2D. While these explanations may not be sufficient for the more mathematically inclined reader, we defer them to <code>carratino2020mixup</code>, which presents a rigorous theoretical analysis into why mixup works well in practice.
 </p>
 
 <p>
@@ -352,7 +390,9 @@ In conclusion:
 <div class="outline-text-2" id="text-4">
 <ul class="org-ul">
 <li><code>beckham2023thesis</code> Beckham, C. (2023). PhD thesis dissertation. (Work in progress.)</li>
+<li><code>vapnik1991principles</code> Vapnik, V. (1991). Principles of risk minimization for learning theory. Advances in neural information processing systems, 4(), .</li>
 <li><code>vapnik1999nature</code> Vapnik, V. (1999). The nature of statistical learning theory. Springer science \&amp; business media.</li>
+<li><code>bishop1995training</code> Bishop, C. M. (1995). Training with noise is equivalent to Tikhonov regularization. Neural computation, 7(1), 108–116.</li>
 <li><code>chapelle2000vicinal</code> Chapelle, O., Weston, J., Bottou, L\'eon, &amp; Vapnik,
 V. (2000). Vicinal risk minimization. Advances in neural information
 processing systems, 13(), .</li>

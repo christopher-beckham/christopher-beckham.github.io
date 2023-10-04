@@ -1,11 +1,10 @@
 ---
-title: Derivations for score-based generative models
+title: My notes and derivations for SMLDs
+description: notes, derivations, and thoughts I have written to help me understand score-based generative models via Langevin dynamics (SMLDs).
 layout: default_latex
-date: 2023-03-20
-tldr: I write some math detailing the SBGM loss and how it can be simplified. I also demystify the official SBGM repository's implementation of the score matching loss.
 ---
 
-<h1>Derivations for score-based generative models</h1>
+<h1>My notes and derivations for SMLDs</h1>
 
 <div hidden>
 <!-- This should be consistent with LATEX_HEADER -->
@@ -15,48 +14,120 @@ $$\newcommand{\psigma}{p_{\sigma_i}}$$
 $$\newcommand{\st}{s_{\theta}}$$
 </div>
 
-<p>
-Without any fancy intros, I'm just going to jump straight into it. The score matching loss is defined as follows <code>song2020improved</code>:
-</p>
-
-\begin{align}
-\text{loss} = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)} \mathbb{E}_{\xxtilde \sim \psigma(\xxtilde|\xx)}\ \Big\| \sigma_i \st(\xxtilde, \sigma_i) + \frac{\xxtilde - \xx}{\sigma_i} \Big\|^{2}_{2},
-\end{align} 
-<p>
-where we denote \(\pi\) as some discrete distribution over the number of noise scales \(i \in \{1, \dots, L\}\). For example, if we sample these indices uniformly then \(\pi(i) = \text{Uniform}(i; 1, L)\).
-</p>
-
-<div id="outline-container-org81742c4" class="outline-2">
-<h2 id="org81742c4"><span class="section-number-2">1.</span> Reparameterisation trick</h2>
+<div id="outline-container-orgcabaae4" class="outline-2">
+<h2 id="orgcabaae4"><span class="section-number-2">1.</span> Derivation of weighted score matching loss</h2>
 <div class="outline-text-2" id="text-1">
 <p>
-Thanks to the re-parameterisation trick, \(\xxtilde \sim \mathcal{N}(\xxtilde; \xx, \sigma)\) can expressed as first sampling standard Gaussian noise \(\epsilon \sim \mathcal{N}(0,1)\) and then computing \(\xxtilde = \xx + \epsilon\sigma\). Therefore, the above equation can be expressed and simplified to the following:
+We derive the score matching equation assuming Gaussian perturbations, and compute it as an expectation over different noise scales \(\sigma_i\):
 </p>
 
 \begin{align}
-& \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i, \sigma_i) + \frac{\xx + \epsilon\sigma_i - \xx}{\sigma_i} \Big\|^{2}_{2} \\
-& = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i, \sigma_i) + \epsilon \Big\|^{2}_{2}. \tag{1}
-\end{align} 
-</div>
-</div>
+\mathbb{E}_{\sigma_i}\mathbb{E}_{q_{\sigma_i}(\xxtilde|\xx)q(\xx)} \Big[ \| \st(\xxtilde, \sigma_i) - \nabla_{\xxtilde} \log q_{\sigma_i}(\xxtilde|\xx) \|^{2} \Big], \tag{1}
+\end{align}
 
-<div id="outline-container-orgbd8c42a" class="outline-2">
-<h2 id="orgbd8c42a"><span class="section-number-2">2.</span> Simplifying noise conditioning</h2>
-<div class="outline-text-2" id="text-2">
 <p>
-In <code>song2020improved</code>, one of the tricks that is proposed is to do away with fancy conditioning techniques inside the U-Net for \(\sigma_i\) as was done in <code>song2019generative</code>. Instead, one just simply scales the output of the U-Net by \(\sigma_i\) instead, which gives us \(\st(\xxtilde, \sigma_i) = \st(\xxtilde) / \sigma_i\). Therefore, we can simplify the above equation even further:
+In practice, we use a weighted form of Eqn. (1) where we introduce a function \(\lambda(\sigma) > 0\) to weight different noise scales:
 </p>
+
 \begin{align}
-& \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i, \sigma_i) + \epsilon \Big\|^{2}_{2} \\
-& = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \sigma_i \st(\xx + \epsilon \sigma_i) / \sigma_i + \epsilon \Big\|^{2}_{2} \\
-& = \mathbb{E}_{\xx \sim p(\xx)}\mathbb{E}_{i \sim \pi(i)}\mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)} \ \Big\| \st(\xx + \epsilon \sigma_i) + \epsilon \Big\|^{2}_{2}. \tag{2}
+\mathbb{E}_{\sigma_i}\mathbb{E}_{q_{\sigma_i}(\xxtilde|\xx)q(\xx)} \lambda(\sigma_i) \Big[ \| \st(\xxtilde, \sigma_i) - \nabla_{\xxtilde} \log q_{\sigma_i}(\xxtilde|\xx) \|^{2} \Big]. \tag{2}
+\end{align}
+
+<p>
+Since \(q_{\sigma}\) is a Gaussian distribution with standard deviation \(\sigma\), let us simplify further:
+</p>
+
+\begin{align}
+\mathcal{L}(\theta) & = \mathbb{E}_{\sigma_i}\mathbb{E}_{q_{\sigma_i}(\xxtilde|\xx)q(\xx)} \lambda(\sigma_i) \Big[ \| \st(\xxtilde, \sigma_i) + \frac{\xxtilde - \xx}{\sigma_i^2} \|_{2}^{2} \Big] \tag{3a} \\ 
+& = \mathbb{E}_{\sigma_i}\mathbb{E}_{q_{\sigma_i}(\xxtilde|\xx)q(\xx)} \lambda(\sigma_i) \Big[ \| \st(\xxtilde, \sigma_i) + \frac{\xx + \sigma_i\epsilon - \xx}{\sigma_i^2} \|_{2}^{2} \Big] \tag{3b} \\
+& = \mathbb{E}_{\sigma_i}\mathbb{E}_{q_{\sigma_i}(\xxtilde|\xx)q(\xx)} \lambda(\sigma_i) \Big[ \| \st(\xxtilde, \sigma_i) + \frac{\sigma_i\epsilon}{\sigma_i^2} \|_{2}^{2} \Big] \tag{3c} \\
+& = \mathbb{E}_{\sigma_i}\mathbb{E}_{q_{\sigma_i}(\xxtilde|\xx)q(\xx)} \lambda(\sigma_i) \Big[ \| \st(\xxtilde, \sigma_i) + \frac{\epsilon}{\sigma_i} \|_{2}^{2} \Big] \tag{3d}
+\end{align}
+
+<p>
+In <code>song2019generative</code>, the authors observed that at <i>optimality</i> the norm of the predicted score \(\| \st(\cdot; \sigma_i) \|_{2}\) is proportional to \(1 / \sigma\). Because they intended for the magnitude of this norm to be the same for any \(\sigma_i\) (to give all noise scales equal weighting) they proposed using \(\lambda(\sigma) = \sigma^2\) so that \(\| \sigma_i \st(\cdot; \sigma_i) \|_{2} \propto 1\) for any noise scale \(i\). We can show this via the following derivation, starting with Eqn. (3d):
+</p>
+
+\begin{align}
+\ell(\xx, \sigma_i; \theta) & = \sigma_i^2 \frac{1}{2}\Big\| \st(\xx + \epsilon\sigma_i, \sigma_i) + \frac{\epsilon}{\sigma_i} \Big\|^{2}_{2} \tag{4a} \\
+& = \sigma_i^2 \frac{1}{2} \sum_{j} \Big[ \st(\xx + \epsilon\sigma_i, \sigma_i)^2 + \frac{2\epsilon}{\sigma_i} \st(\xx+\epsilon\sigma, i) + \frac{\epsilon^2}{\sigma_i^2}\Big]_{j} \tag{4b} \\
+& = \frac{1}{2} \sum_{j} \Big[ \sigma_i^2 \st(\xx + \epsilon\sigma_i, \sigma_i)^2 + 2\epsilon\sigma_i \st(\xx+\epsilon\sigma, i) + \epsilon^2\Big]_{j} \tag{4c} \\
+& = \frac{1}{2}\Big\| \sigma_i \st(\xx+\epsilon\sigma_i, \sigma_i) + \epsilon \Big\|^{2}_{2}, \tag{4d}
+\end{align}
+
+<p>
+where we note that \(\epsilon \sim \mathcal{N}(0,1)\) and  \(\| \sigma_i \st(\cdot; \sigma_i) \|_{2}^{2} \propto 1\) and so the the magnitude of the above is independent of \(\sigma_i\).
+</p>
+</div>
+
+<div id="outline-container-orgbdc91f8" class="outline-3">
+<h3 id="orgbdc91f8"><span class="section-number-3">1.1.</span> Improved techniques for SMLDs</h3>
+<div class="outline-text-3" id="text-1-1">
+<p>
+If we use the score predictor formulation in <code>song2020improved</code> then we can simplify this equation further by defining \(\st(\xx, \sigma_i) := \st(\xx) / \sigma_i\):
+</p>
+
+\begin{align}
+\ell(\xx; \sigma_i; \theta) = \frac{1}{2}\Big\| \st(\xx+\epsilon\sigma_i) + \epsilon \Big\|^{2}_{2}. \tag{4d}
 \end{align}
 </div>
 </div>
 
+<div id="outline-container-org9aa8bf8" class="outline-3">
+<h3 id="org9aa8bf8"><span class="section-number-3">1.2.</span> SMLDs via stochastic differential equations</h3>
+<div class="outline-text-3" id="text-1-2">
+<p>
+In this paper \(t \in [0,1]\) is now a continuous random variable which indexes time, rather than discrete \(\{1, \dots, T\}\). They also unify DDPMs and SMLDs and so some notation from the former is also used, i.e. \(q(\xx_0, \dots, \xx_T)\) to denote the forward process.
+</p>
+
+\begin{align}
+\lambda(t) \propto 1 / \mathbb{E}\big[ \| \nabla_{\xx_t} \log q_{\sigma_t}(\xx_t | \xx_0) \|_{2}^{2} \big], \tag{5}
+\end{align}
+
+<p>
+where \(t \in \mathbb{Z}\) and I am using DDPM-style notation here to be consistent with how it's written in the original paper. From this it looks like you can just simpify Eqn. (5) by substituting in the actual score:
+</p>
+
+\begin{align}
+\lambda(\sigma_t) & \propto \frac{1}{ \mathbb{E}_{\xx_t, \xx}\big[ \| \frac{\xxtilde - \xx}{\sigma_t^2} \|_{2}^{2} \big] } = \frac{1}{ \mathbb{E}_{\epsilon}\big[ \| \frac{\epsilon}{\sigma_t} \|_{2}^{2} \big] }  \tag{5b} = \frac{1}{ \frac{1}{\sigma_t^2} \mathbb{E}_{\epsilon} \| \epsilon \|_{2}^{2} }  = \frac{1}{ \frac{1}{\sigma_t^2}p \mathbb{E}_{\epsilon} \epsilon^{2} } = \frac{\sigma_t^2}{p}
+\end{align}
+
+<p>
+I am hoping that my derivation from (5d) to (5e) is correct. We know the distribution \(\epsilon \sim \mathcal{N}(0,1)\) but the squared norm is computing \(\epsilon_j^2\) for \(j \in \{1, \dots, p\}\), and \(\epsilon^2\) <a href="https://math.stackexchange.com/questions/620045/mean-and-variance-of-squared-gaussian-y-x2-where-x-sim-mathcaln0-sigma">supposedly comes from a Chi-squared distribution</a> with mean \(\text{Var}(\epsilon)\), so I am just substituting \(\mathbb{E}_{\epsilon} \epsilon^2\) with \(1\) and multiplying with \(p\), which is just a constant and does not depend on \(t\). Anyway, the key thing is that the \(\sigma_t^2\) term gets popped up into the numerator.
+</p>
+
+<p>
+As a side note, since \(t \in [0,1]\) for <code>song2020score</code>, in their Colab notebook they use the following weighting function, and this is just the variance of the $t$-step forward process:
+</p>
+
+\begin{align}
+\lambda(t) = \frac{1}{2 \log \sigma}\big( \sigma^{2t} - 1 \big).
+\end{align}
+</div>
+</div>
+
+<div id="outline-container-org973e36e" class="outline-3">
+<h3 id="org973e36e"><span class="section-number-3">1.3.</span> SDE variants</h3>
+<div class="outline-text-3" id="text-1-3">
+<p>
+This paper is a lot to take in and proposes a ton of new stuff, but it does unify DDPMs and NCSNs and show they are both different kinds of discretisations of an SDE. I am unable to offer much thoughts since I don't have much experience with SDEs. My summary of the paper is:
+</p>
+
+<ul class="org-ul">
+<li>DDPMs -&gt; variance preserving (VP) SDE (since for DDPMs \(p(x_T)\) is set to be unit variance).</li>
+<li>NCSNs -&gt; variance exploding (VE) SDE (since we define a noise schedule and the last one \(\sigma_{\text{max}}\) can be arbitrarily large).</li>
+<li>Proposal of predictor corrector sampler, quote from paper: "PC samplers generalize the original sampling methods of SMLD and DDPM: SMLD uses an identity function as the predictor and annealed Langevin dynamics as the corrector, while the DDPM uses ancestral sampling as the predictor and identity as the corrector."</li>
+<li>Table 3 CIFAR10 results: NSCN++, VE, has the best FID</li>
+<li>Table 1 has way too much information to parse, I want to maybe convert this to a barplot or something. But it does look like PC sampling makes a big difference.</li>
+<li>Use the same architecture as Ho et al (2020), so it is not the "divide by sigma" formulation in "improved techniques for NCSNs" where you define&#x2026;</li>
+</ul>
+</div>
+</div>
+</div>
+
 <div id="outline-container-org820cff9" class="outline-2">
-<h2 id="org820cff9"><span class="section-number-2">3.</span> Understanding the implementation in official code</h2>
-<div class="outline-text-2" id="text-3">
+<h2 id="org820cff9"><span class="section-number-2">2.</span> Understanding the implementation in official code</h2>
+<div class="outline-text-2" id="text-2">
 <p>
 The official implementation of the loss doesn't look entirely clear at first, but we can do some derivations to show that it is equivalent to equation (1) if we do some algebra.
 </p>
@@ -97,28 +168,12 @@ When <code>anneal_power=2</code> (the default), then \(\lambda(\sigma_i) = \sigm
 </div>
 
 <div id="outline-container-orgd2d123f" class="outline-2">
-<h2 id="orgd2d123f"><span class="section-number-2">4.</span> References</h2>
-<div class="outline-text-2" id="text-4">
+<h2 id="orgd2d123f"><span class="section-number-2">3.</span> References</h2>
+<div class="outline-text-2" id="text-3">
 <ul class="org-ul">
-<li><code>song2020improved</code> Song, Y., &amp; Ermon, S. (2020). Improved techniques for training score-based generative models. Advances in neural information processing systems, 33(), 12438–12448.</li>
 <li><code>song2019generative</code> Song, Y., &amp; Ermon, S. (2019). Generative modeling by estimating gradients of the data distribution. Advances in neural information processing systems, 32(), .</li>
+<li><code>song2020improved</code> Song, Y., &amp; Ermon, S. (2020). Improved techniques for training score-based generative models. Advances in neural information processing systems, 33(), 12438–12448.</li>
+<li><code>song2020score</code> Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., &amp;  Poole, B. (2020). Score-based generative modeling through stochastic differential equations. arXiv preprint arXiv:2011.13456, (), .</li>
 </ul>
-</div>
-</div>
-
-<div id="disqus_thread"></div>
-  <script>
-    var disqus_config = function () {
-      this.page.url = '{{ page.url | absolute_url }}';
-      this.page.identifier = '{{ page.url | absolute_url }}';
-    };
-    (function() {
-      var d = document, s = d.createElement('script');
-      s.src = 'https://www-beckham-nz.disqus.com/embed.js';
-      s.setAttribute('data-timestamp', +new Date());
-      (d.head || d.body).appendChild(s);
-    })();
-  </script>
-  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
 </div>
 </div>

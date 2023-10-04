@@ -12,6 +12,7 @@
 #+BEGIN_EXPORT html
 ---
 title: Techniques for label conditioning in Gaussian denoising diffusion models
+tldr: A discussion of three recently-proposed conditional variants for Gaussian diffusion probabilistic models -- classifier-based guidance, classifier-free guidance, and the conditional ELBO (evidence lower bound).
 layout: default_latex
 ---
 
