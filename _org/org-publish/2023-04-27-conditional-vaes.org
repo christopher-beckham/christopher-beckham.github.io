@@ -35,6 +35,7 @@
 #+LATEX_HEADER: \newcommand{\phip}{\color{purple}{\phi}}
 #+LATEX_HEADER: \newcommand{\thetagr}{\color{green}{\theta}}
 #+LATEX_HEADER: \newcommand{\kldiv}{ \mathcal{D}_{\text{KL}} }
+#+LATEX_HEADER: \newcommand{\fdiv}{ \tilde{\mathcal{D}}_{f} }
 #+LATEX_HEADER: \newcommand{\elbo}{ \text{ELBO}(\textcolor{purple}{\phi}, \textcolor{green}{\theta}) }
 #+LATEX_HEADER: \newcommand{\myeq}[1]{\stackrel{\mathclap{\normalfont\mbox{#1}}}{=}}
 
@@ -91,6 +92,7 @@ $$\newcommand{\pzx}{\color{green}{p_{\theta}}(\zz, \xx)}$$
 $$\newcommand{\qz}{\color{purple}{q}(\zz)}$$
 $$\newcommand{\qzx}{\color{purple}{q}(\zz, \xx)}$$
 $$\newcommand{\kldiv}{ \mathcal{D}_{\text{KL}} }$$
+$$\newcommand{\fdiv}{ \tilde{\mathcal{D}}_{f} }$$
 $$\newcommand{\elbo}{ \text{ELBO}(\color{purple}{\phi}, \color{green}{\theta}) }$$
 $$\newcommand{\myeq}[1]{\overset{#1}{=}}$$
 </div>
@@ -128,20 +130,15 @@ Independent C-VAE:
 \end{tikzpicture}
 #+END_COMMENT
 
+*Updates:*
+
+- (06/10/2023) Some fixes to the text, and an overhaul of the discussion section to connect it better with the rest of the post.
+
 #+TOC: headlines 3
 
 * Introduction
 
 This is yet another excerpt from my upcoming PhD thesis. I actually wanted to write this several years ago after some really painful experiences I had with getting conditional VAEs to work on a generative modelling project I was working on. To the best of my knowledge, I haven't seen any paper that talks in depth about these difficulties and so I am quite happy to finally share them with everyone. VAEs -- despite their conceptual simplicity -- can be difficult to understand and even more so for its conditional variants. In this post I will dive into the theory of conditional VAEs, derive interesting equations which elucidate their behaviour, and corroborate those insights on a simple toy dataset.
-
-#+BEGIN_COMMENT
-I will save the basics for unconditional VAEs for another blog post. I should be publishing part one first, but I've really wanted to publish this part for a long time  -- in fact I wanted to do it roughly two years ago but kept putting it off! Generally speaking, VAEs are derived through the following observations:
-
-- As per maximum likelihood estimation, we wish to find parameters $\theta$ such that we maximise the log likelihood $\pt(\xx)$ over the data. To learn useful features about the data we can express it was a marginalisation over an additional latent variable $\zz$.
-- The marginalisation is intractable, because $\pt(\xx) = \int_{\zz} \pt(\xx,\zz) d\zz$.
-- If one factorises $\pt(\xx,\zz)$ into $\pt(\zz|\xx)p(\xx)$ then the above marginalisation could be approximated with Monte Carlo. However, we don't know that $\pt(\zz|\xx)$ should be since we don't know the true latent variables $\zz$. If we try derive it via Bayes' rule, i.e. $\pt(\zz|\xx) = \pt(\xx|\zz)p(\zz) / Z$, then we just have the same problem of intractability since $Z$ is the normalising constant. Furthermore, it still isn't clear how $\zz$ to be obtained, since one conditional depends on the other in a circular fashion.
-- This issue can be resolved by substituting $\pt(\zz|\xx)$ with a separate network $\qp(\zz|\xx)$ and we derive a tractable objective for $\pt(\xx)$, which is called the evidence lower bound.
-#+END_COMMENT
 
 # In the next section I'll give a different perspective on how the ELBO can be derived. This perspective will help us reason about some of the difficulties inherent in training conditional VAEs. 
 
@@ -150,10 +147,10 @@ I will save the basics for unconditional VAEs for another blog post. I should be
 This post focuses almost exclusively on conditional VAEs, but it also equally applies to unconditional ones. The contributions of this post are as follows:
 
 - In Section [[#sec_perspective]] we present cVAEs through an unconventional but rather enlightening perspective, inspired by Esmaeili et al. (2018). This involves thinking about the VAE as parameterising two separate pathways (the /generative/ and /inference/ process), and the evidence lower bound can be derived as the KL divergence between these two. While their work was derived assuming unconditional VAEs, we consider the conditional case as well.
-- We discuss two parameterisations of a cVAE: one where the conditioning variable $\yy$ and latent variable $\zz$ are assumed to be independent (Section [[#sec_zy_independent]]), and one where they are not (Section [[#sec_zy_dependent]]).
-- Through the lens of mutual information terms, in Section [[#sec_mi_zx]] we discuss the difficulty in training them and their unconditional counterparts. In particular, the theoretical formulation of the VAE says that a trade-off must always be made between the quality of samples in the generative and inference pathways.
-- In Section [[#sec_experiments]] we present experiments corroborating these behaviours on a toy 2D dataset consisting of two Gaussian clusters, where a cVAE must be trained to sample from either of the two clusters correctly. 
-- We present a potential fix to the /ELBO dilemma/, as well as discuss why this issue does not exist for usual implementations of diffusion models, which can be seen as multi-latent generalisations of the VAE.
+- We discuss two parameterisations of a cVAE: one where the conditioning variable $\yy$ and latent variable $\zz$ are assumed to be either independent (Section [[#sec_zy_independent]]) or dependent (Section [[#sec_zy_dependent]]). The former is a useful parameterisation if one is interested in performing controllable generation.
+- Through the lens of mutual information estimation, we elucidate the difficulties involved in training such a class of models (Section [[#sec_mi_zx]]). In particular, we show such that optimising VAEs is a careful balance between ensuring that sample quality and diversity are adequate for both the generative and inference processes.
+- We present experiments corroborating our theoretical analyses on a toy 2D dataset consisting of two Gaussian clusters, where a cVAE must be trained to sample from either of the two clusters correctly (Section [[#sec_experiments]]).
+- We discuss how VAE training issues can be avoided by considering adversarial learning or hybrid adversarial / VAE-style models.
 
 * The generative and inference process
 :PROPERTIES:
@@ -226,7 +223,7 @@ Here, $p(\yy)$ is some prior for $\yy$ but it falls out of the KL term since it 
 </div>
 #+END_EXPORT
 
-Such a factorisation may be useful to encode if we are seeking to learn /disentangled/ representations. For instance, if we were learning a conditional VAE over SVHN digits (where $y$ encodes the identity of the digit), perhaps we would like for our VAE to learn a $\zz$ that encodes /everything else/ in the image apart from the digit itself, for instance details in the background and the font, colour, etc. of the digit. This would make for a very controllable generative process where we are able to apply different styles $\zz$ to the same digit $\yy$, and vice versa. (In fact, I show an example of this in Sec. [[#sec_svhn]] for a real research project I did on disentangled VAEs.)
+Such a factorisation may be useful to encode if we are seeking to learn /disentangled/ representations. For instance, if we were learning a conditional VAE over SVHN digits (where $y$ encodes the identity of the digit), perhaps we would like for our VAE to learn a $\zz$ that encodes \emph{everything else} in the image apart from the digit itself (for instance background details and font style). This would make for a very controllable generative process where we could arbitrarily mix and match style and content variables from different examples to create new ones.
 
 ** When z and y are dependent
 :PROPERTIES:
@@ -408,21 +405,11 @@ In the previous section we showed how minimising the KL term in the ELBO involve
 
 Minimising the mutual information between $\ZZ$ and $\YY$ for $\ZZ,\YY$ independent VAEs is also important since we want the two variables to encode completely separate concepts. For instance, it is common in image datasets for $\YY$ to encode something semantically desirable about $\XX$, for instance the identity of the object in the foreground or what category it belongs to. If our dataset is labelled such that $\YY$ is assigned such semantic meaning, then we would like $\ZZ$ to encode everything else that is not related to $\YY$.
 
-Since we assume that $\qp(\zz|\xx,\yy) = \qp(\zz|\xx)$ for the independent case, the KL term in Eqn. (10f) is equivalent a marginal KL term plus a mutual information term. We do not want $\ZZ$ to encode any information about $\YY$, but the issue is that $\XX$ also encodes information about $\YY$, and so trying to drive down $I_{\phip}(\ZZ; \YY)$ would inevitably mean we need to drive down $I_{\phip}(\ZZ; \XX)$, but this degrades sample quality[fn:1]. In the absence of extra supervisory signal[fn:2] that could potentially encourage the network to only encode the 'non-label' parts of $\XX$, we are stuck with a difficult optimisation problem.
-
-#+BEGIN_COMMENT
-It turns out that we can expand the mutual information term in Eqn. (10) into the following:
-
-\begin{align}
-I_{\phip}(\ZZ; \XX, \YY) = I_{\phip}(\ZZ; \XX) + I_{\phip}(\ZZ; \YY) + I_{\phip}(\XX; \YY; \ZZ), \tag{11}
-\end{align}
-
-where we can see that the term decomposes into two terms comparing $\ZZ$ against $\XX$ and $\YY$ and a correction term called 'interaction information' (which has a trickier interpretation). While we would like for $I_{\phip}(\ZZ;\YY)$ to be zero, what makes things difficult is that there is also information about $\YY$ stored in $\XX$ -- and so trying to drive down $I_{\phip}(\ZZ; \YY)$ would inevitably mean we need to drive down $I_{\phip}(\ZZ; \XX)$ as well, but this also reduces the ability for $\ZZ$ to encode factors of variation that are not part of $\YY$. This is what makes this kind of VAE very difficult to optimise. 
-#+END_COMMENT
-
-[fn:2]If one had a highly supervised dataset of 'paired' examples $(\xx^{(i)}_1, \xx^{(i)}_2)$ where $\xx_1$ and $\xx_2$ only dithered by $\YY$ (i.e. all other factors of variation remained the same) then it would perhaps be much easier to learn this style of VAE, but such datasets are usually not reflective of the real world.
+From Sec. [[#sec_mi_zx]] we showed that minimising the per-example KL means also minimising $I_{\phip}(\XX; \ZZ)$. In actuality it would be nice to instead minimise the mutual information between $\ZZ$ and $\YY$ (even though this term is not present in the equation), but the issue is that $\XX$ \emph{also encodes} information about $\YY$, and so trying to drive down $I_{\phip}(\ZZ; \YY)$ would inevitably mean we need to drive down $I_{\phip}(\ZZ; \XX)$, but this degrades sample quality[fn:1]. In the absence of extra supervisory signal[fn:2] that could potentially encourage the network to only encode the `non-label' parts of $\XX$ in $\ZZ$, we are stuck with a very difficult optimisation problem.
 
 [fn:1]While it is possible in /principle/ to derive an additional loss term which specifically penalises $I(Z; Y)$ (e.g. with Monte Carlo approximation or with adversarial learning), from personal experience it came with very little success. I suspect it is because such a term only works if the likelihood term is sufficiently downweighted, but this causes sample quality to suffer and we just end up with the same problem as we do with the original KL term.
+
+[fn:2]If one had a highly supervised dataset of 'paired' examples $(\xx^{(i)}_1, \xx^{(i)}_2)$ where $\xx_1$ and $\xx_2$ only dithered by $\YY$ (i.e. all other factors of variation remained the same) then it would perhaps be much easier to learn this style of VAE, but such datasets are usually not reflective of the real world.
 
 #+BEGIN_COMMENT
 - We still need to min I(Z; X).
@@ -484,13 +471,7 @@ We now present some experiments on a toy 2D dataset for both variants of cVAE. T
 p(\xx) = \sum_{i \in \{0,1\} }p(\xx,\yy_i) = \sum_{i \in \{0,1\}} p(\xx|\yy_i)p(\yy_i),
 \end{align}
 
-where:
-
-- $p(\xx|\yy=0) = \mathcal{N}(\xx; [-2.5, 1]^{T}, 2\mathbf{I})$, 
-- $p(\xx|\yy=1) = \mathcal{N}(\xx; [6,-2]^{T}, 2 + \mathbf{I})$, and 
-- $p(\yy=0) = p(\yy=1) = \frac{1}{2}$.
-
-Samples from this distribution are visualised below in Figure 3.
+where  $p(\xx|\yy=0) = \mathcal{N}(\xx; [-2.5, 1]^{T}, 2\mathbf{I})$, $p(\xx|\yy=1) = \mathcal{N}(\xx; [6,-2]^{T}, 2 + \mathbf{I})$, and $p(\yy=0) = p(\yy=1) = \frac{1}{2}$. Samples from this distribution are visualised below in Figure 3.
 
 #+BEGIN_EXPORT html
 <div id="images">
@@ -505,12 +486,9 @@ Samples from this distribution are visualised below in Figure 3.
 
 For the following experiments, we train a single hidden layer MLP for both the encoder and decoder. The encoder is a mapping $\mathbb{R}^{2} \rightarrow \mathbb{R}^{h} \rightarrow \mathbb{R}^{2}$ which means the latent variable is also two-dimensional, for interpretability sake. Likewise, the decoder is of a similar mapping.
 
-For these experiments, we wish to illustrate the following for both independent and dependent variants:
+For the following experiments, we wish to illustrate the behaviour of a conditional VAE with respect to the following attributes: (1) whether $\ZZ$ and $\YY$ are dependent or not; (2) as a function of increasing the KL regularisation coefficient $\beta$. Furthermore, we wish to illustrate both behaviours in input space $\mathcal{X}$ as well as latent space $\mathcal{Z}$. For convenience, both the input and latent spaces are two-dimensional, and subsequent figures will make it clear which space is being visualised.
 
-- The behaviour of the cVAE in /input space/, as $\beta$ is increased;
-- the behaviour in /latent space/, as $\beta$ is increased.
-
-Furthermore, for the independent variant we will also illustrate controllable generation in /input space/.
+Concretely, the encoder $\qp(\zz|\xx)$ is an MLP $\mathbb{R}^{p=2} \rightarrow \mathbb{R}^{h} \rightarrow \mathbb{R}^{p=2}$ for $h$ hidden units. Likewise, the decoder takes on a similar structure.
 
 ** When z and y are independent
 :PROPERTIES:
@@ -579,9 +557,7 @@ In Figure 4a, if we choose $\beta = 0.01$, it looks as though some of the green 
 </div>
 #+END_EXPORT
 
-Finally, in Figure 5 for $\beta = 1$  we finally see that the green points get matched to their respective clusters. Unfortunately, the inference process has degraded and reconstruction error has significantly increased as as result ($\approx 1.61$). We can also see this qualitatively for the rightmost cluster, where reconstructions lie on a very narrow subspace instead of being more evenly distributed across the cluster. Compared to the previous experiment, sample quality is /very good/ but sample diversity has /degraded/.
-
-Note that in Figure 5b the two condtionals $\qp(\zz|\yy=0)$ and $\qp(\zz|\yy=1)$ are more or less the same, which indicates almost no mutual information between $\ZZ$ and $\YY$. Because of this, if the autoencoder wishes to reconstruct the data well (i.e. drive down the likelihood term) then it /should/ make use of the $\yy$ passed to it in the decoder. $\qp(\zz)$ is just the average of its conditionals $\qp(\zz|\yy=0)$ and $\qp(\zz|\yy=1)$, and it looks very similar to the prior, which is consistent with the aggregate matching KL term in Eqn. (10f).
+Finally, in Figure 5 for $\beta = 1$  we finally see that the green points get matched to their respective clusters. Unfortunately, the inference process has degraded and reconstruction error has significantly increased as as result ($\approx 1.61$). We can also see this qualitatively for the rightmost cluster, where reconstructions lie on a very narrow subspace instead of being more evenly distributed across the cluster. Therefore, we can say that with respect to both processes, sample quality is \emph{very good} but sample diversity has \emph{degraded}. Lastly, note that in Figure 5b the two condtionals $\qp(\zz|\yy=0)$ and $\qp(\zz|\yy=1)$ are more or less the same, which indicates roughly zero mutual information between $\ZZ$ and $\YY$. Because of this, the autoencoder will now be `incentivised' to make use of $\yy$ since it will obviously be a useful variable to leverage use when maximising the log likelihood of the data (assuming $\beta$ is not too large, since it controls the degree to which the optimisation focuses on the likelihood term).
 
 #+BEGIN_EXPORT html
 <div id="images">
@@ -742,52 +718,62 @@ E_q log q(z)
 
 * Discussion
 
-So far we have seen that the ability for either conditional VAE to be able to decode samples from the prior is heavily dependent on the value of $\beta$ that is chosen. From Eqns. 10(a) and 10(b) we showed that this inevitably comes at a cost, which is reducing the mutual information between $\XX$ and $\ZZ$ with respect to the encoder $\qp$. This means that sample quality becomes degraded. Based on what we have seen so far we can say the following about $\beta$:
+So far we have seen that the ability for either conditional VAE to be able to decode samples from the prior is heavily dependent on the value of $\beta$ that is chosen. From Section [[#sec_mi_zx]] we showed that this inevitably comes at a cost, which is reducing the mutual information between $\XX$ and $\ZZ$ with respect to the encoder $\qp$. This means that sample quality becomes degraded. Based on what we have seen so far we can say the following about $\beta$:
 
-- Small values of $\beta$ correspond to good sample quality wrt latent codes $\zz \sim \qp(\zz)$, but not for $\zz \sim p(\zz)$;
-- 'good' values for $\beta$ correspond to OK sample quality wrt to either distribution;
-- and 'large' values of $\beta$ correspond to bad sample quality wrt to both distributions, because the latent variable $\ZZ$ progressively gets more 'bottlenecked'.
+- (1) For any type of VAE (conditional or unconditional), it is crucial to tune $\beta$ (the `per-example' KL) in order to balance the trade-off between sample quality and sample diversity with respect to both the inference and generative distributions.  The effect of increasing $\beta$ however means reducing the mutual information between $\ZZ$ and $\XX$, and this degrades sample quality with respect to either process (Section [[#sec_mi_zx]]).
+- (2) For $\ZZ,\YY$ dependent cVAEs, increasing $\beta$ increases the strength of the KL term which matches the conditional priors to their respective variational posteriors (which we showed in Eqn. (14f)). As per (1) however this also means sample quality degrades.
+- (3) For $\ZZ,\YY$ independent cVAEs, we do not want $\ZZ$ to contain any information about $\YY$. While we do not explicitly have a term for $I_{\phip}(\ZZ;\YY)$, an increase in $\beta$ implicitly decreases it since it corresponds to decreasing $I_{\phip}(\ZZ;\XX)$. Again, as per (1) this corresponds to a decrease in sample quality.
 
 While there is a vast literature proposing improved variants of the VAE, arguably its core design is too restrictive, and that there is always going to be a trade-off between the quality of the inference and generative distributions. We can also highlight this difficult with only a few lines of derivations. To keep things simple, let us assume an unconditional VAE and therefore a KL between the following joints:
 
 \begin{align}
-& \min_{\phip,\thetagr} \kldiv \Big[ \qp(\XX,\ZZ) \ \| \ \ptgreen(\XX,\ZZ) \Big]\\
-& = \mathbb{E}_{\qp(\zz,\xx)} \log \frac{\qp(\zz,\xx)}{\pt(\xx,\zz)} \\
-& = \mathbb{E}_{\qp(\zz,\xx)} \log \frac{\qp(\zz|\xx)q(\xx)}{\pt(\xx|\zz)p(\zz)} \\
-& = \mathbb{E}_{\qp(\zz,\xx)} \log \Big[ \frac{\qp(\zz|\xx)q(\xx)}{\pt(\xx|\zz)p(\zz)} \cdot \frac{\qp(\zz)}{\qp(\zz)} \Big] \\
-& = \underbrace{\mathbb{E}_{\qp(\zz,\xx)} \log \frac{\qp(\zz|\xx)}{\qp(\zz)}}_{I_{\phip}(\XX; \ZZ)} + \mathbb{E}_{\qp} \log \frac{\qp(\zz)}{p(\zz)} + \mathbb{E}_{\qp} \log \frac{q(\xx)}{\pt(\xx|\zz)},
+& \min_{\phip,\thetagr} \kldiv \Big[ \qp(\XX,\ZZ) \ \| \ \ptgreen(\XX,\ZZ) \Big] \tag{15a} \\
+& = \mathbb{E}_{\qp(\zz,\xx)} \log \frac{\qp(\zz,\xx)}{\pt(\xx,\zz)} \tag{15b} \\
+& = \mathbb{E}_{\qp(\zz,\xx)} \log \frac{\qp(\zz|\xx)q(\xx)}{\pt(\xx|\zz)p(\zz)} \tag{15c} \\
+& = \mathbb{E}_{\qp(\zz,\xx)} \log \Big[ \frac{\qp(\zz|\xx)q(\xx)}{\pt(\xx|\zz)p(\zz)} \cdot \frac{\qp(\zz)}{\qp(\zz)} \Big] \tag{15d} \\
+& = \underbrace{\mathbb{E}_{\qp(\zz,\xx)} \log \frac{\qp(\zz|\xx)}{\qp(\zz)}}_{I_{\phip}(\XX; \ZZ)} + \mathbb{E}_{\qp} \log \frac{\qp(\zz)}{p(\zz)} + \mathbb{E}_{\qp} \log \frac{q(\xx)}{\pt(\xx|\zz)}, \tag{15e}
 \end{align}
 
 where we see that the first term is a minimisation of the mutual information between $\ZZ$ and $\XX$ with respect the inference network.
 
-This begs the question as to what could be done to make VAEs less cumbersome to optimise. One idea is to do away with the KL term in the ELBO during training and just optimise the likelihood term, and once training has finished we can somehow learn the prior $p(\zz)$ based on samples from $\qp(\zz)$. If we make use of adversarial learning, we could just optimise the likelihood as well as an additional adversarial term which ensures that samples from the /learned/ prior are indistinguishable from those from the inference network (=makhzani2015adversarial=), for instance:
+This begs the question as to what could be done to make it easier to train cVAEs while minimising the loss of sample quality. Arguably the most difficult variant to get `right' is the $\ZZ,\YY$ independent VAE, because we have the added constraint that $\ZZ$ should not contain any information about $\YY$, but in order to reduce $I_{\phi}(\ZZ;\YY)$ we also need to inevitably reduce $I_{\phi}(\ZZ; \XX)$ as well (Section [[#sec_mi_zy]]). While one could `hack' the ELBO by decreasing $\beta$ while also adding a term which is intended to maximise $I_{\phip}(\ZZ;\YY)$, from personal experience such attempts have not worked at all. This is most likely because the likelihood term is simply contradicting everything else: recall that it is maximising the log likelihood of the data $\xx$ given latent code $\zz$ from the encoder, and the mutual information between $\XX$ and $\ZZ$ must be large in order to do that. 
 
-\begin{align}
-\min_{\thetagr, \phip} \ -\mathbb{E}_{\qp(\zz,\xx)} \log \pt(\xx|\zz,\yy) + \lambda d_{\text{GAN}}
-\Big[ \qp(\ZZ) \| \pt(\ZZ) \Big],
+From personal experience, $\ZZ,\YY$ independent generative models are trivial to get working with GANs. However, they they sit on the opposite spectrum of the sample quality and diversity trade-off: VAEs suffer in terms of the former while GANs suffer in terms of the latter. In order to combine the best of both worlds, many works have been proposed to either combine VAEs and GANs (=makhzani2015adversarial=, =larsen2016autoencoding=, =mescheder2017adversarial=) or propose GANs which can also perform inference (=chen2016infogan=, =dumoulin2016adversarially=, =donahue2016adversarial=). For instance, one of the simplest additions to do this is `InfoGAN' =chen2016infogan=, which simply proposes that one adds an extra output branch to the discriminator to predict any of the latent codes passed into the generator (i.e. $\zz$ and $\yy$). Then the final loss is the usual two-player minimax game but both generator and discriminator optimise their parameters to minimise this prediction loss. While the original motivation of this paper was to mitigate loss of sample diversity (as is common with GANs), another benefit is that the discriminator $D$ can act as an inference network.
+
+Another possible solution is to simply forego the idea of trying to optimise the two distributions (generative and inference) to be close to each other since it results in contradicting losses (for instance, likelihood vs per-example KL). Instead, we could simply train a deterministic autoencoder -- whose only purpose is inference -- but in parallel train a sampler network (e.g. a GAN) to learn its own distribution $\ptgreen(\zz)$ to match $\qp(\zz)$ =makhzani2015adversarial=. In this setup, the sampler network and the autoencoder are designed such that they should /complement/ rather than /contradict/ each other, and we can think of $\ptgreen(\zz)$ as actually learning what would be the prior $p(\zz)$ for a regular VAE. (It is worth noting that one popular VAE variant -- the `vector-quantised' autoencoder =van2017neural= -- actually learns the prior in a post-hoc fashion like we have proposed, but they learn this as an autoregressive model.)
+
+Concretely, we could learn a kind of VAE where the per-example KL term is instead replaced with an `adversarial' divergence $\fdiv$ [fn:5] between $\qp(\ZZ)$ and a learnable prior $\ptgreen(\ZZ)$ (Figure X):
+
+\begin{align} \label{eq:cvae:adv_ae}
+\min_{\thetagr, \phip} \ -\mathbb{E}_{\qp(\zz,\xx)} \log \pt(\xx|\zz,\yy) + \lambda \fdiv \Big[ \qp(\ZZ) \| \pt(\ZZ) \Big], \tag{16}
 \end{align}
 
-and $\pt(\zz)$ is a /learned prior/ which is the generator comprising the GAN, and we produce samples from it by generating noise from a simple prior $\eta \sim p(\eta)$ (e.g. a Gaussian) and then running it through the neural network. Of course, we also have a discriminator that we also optimise which has to distinguish between samples from the inference marginal $\qp$ vs the learned prior $\pt$.
+where samples $\zz \sim \ptgreen(\zz)$ are computed via $\zz = G_{\theta}(\eta)$ for some simple prior $p(\eta)$. While equation \ref{eq:cvae:adv_ae} is no longer an ELBO, one can think of there existing an actual ELBO which is just the likelihood term plus the per-example KL between $\qp(\XX|\ZZ,\YY)$ and $\ptgreen(\ZZ)$, which in our case is not computable in closed form since $\ptgreen(\zz)$ is implicitly represented by the generator.
 
-While this is an interesting start, one issue is that samples from the learned prior may not necessarily decode into plausible looking samples. For instance, if $\qp(\zz)$ is not sufficiently smooth but rather 'spiky', then samples from $\pt$ which don't fall into one of those spikes might not decode into a plausible image. In that case, we should really be training a GAN to match the generative and inference pathways:
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/cvae/adv-autoencoder.png" width="500" alt="" />
+</figure>
+<figcaption><b><i>A deterministic autoencoder augmented with a GAN, which is comprised of generator G and discriminator D.</i></b></figcaption>
+<br />
+</div>
+#+END_EXPORT
 
-\begin{align}
-\min_{\thetagr, \phip} \ -\mathbb{E}_{\qp(\zz,\xx)} \log \pt(\xx|\zz,\yy) + \frac{\lambda}{2} d_{\text{GAN}}
-\Big[ \qp(\ZZ) \| \pt(\ZZ) \Big] + \frac{\lambda}{2} d_{\text{GAN}} \Big[ q(\XX) \| \pt(\XX) \Big],
+While this is an interesting start, one issue is that samples from the learned prior may not necessarily decode into plausible looking samples. For instance, if $\qp(\zz)$ is not sufficiently smooth but rather 'spiky', then samples from $\ptgreen(\zz)$ which don't fall into one of those spikes may not decode into a plausible image. In such a case, we may need to add extra regularisation in the form of an \emph{additional} adversarial loss which ensures that decoded samples from $\ptgreen(\xx)$ should be indistinguable from those from the real data distribution $q(\xx)$. In that case, we should really be training a GAN to match the generative and inference pathways:
+
+\begin{align} \label{eq:cvae:adv_ae_joint}
+\min_{\thetagr, \phip} \ -\mathbb{E}_{\qp(\zz,\xx)} \log \ptgreen(\xx|\zz,\yy) + \fdiv \Big[ \qp(\ZZ, \XX) \| \ptgreen(\ZZ, \XX) \Big]. \tag{16}
 \end{align}
 
-where $\thetagr, \phip$ jointly comprise the 'generator' (one generator is a decoder and one is an encoder). Interestingly this leads us to an existing work which precisely does that: adversarially learned inference (=dumoulin2016adversarially=)! Concretely, ALI seeks to minimise some approximation of some divergence:
+It turns out that Eqn. (17) without the likelihood term is equivalent to the /bidirectional GAN/ (=dumoulin2016adversarially=, =donahue2016adversarial=). In particular, these models propose the following loss:
 
 \begin{align}
-\min_{\thetagr, \phip} \mathcal{D}_{?}\Big[ \pt(\XX,\ZZ) \| \qp(\XX,\ZZ) \Big]
+\min_{\thetagr, \phip} \fdiv \Big[ \ptgreen(\XX,\ZZ) \| \qp(\XX,\ZZ) \Big]. \tag{17}
 \end{align}
 
-where the precise divergence being approximated depends on the loss function for the generator and discriminator (=nowozin2016f=). We state this simply as a coincidence, since we originally showed in Eqn. (4) that VAEs  minimise the /forward KL divergence/ and here we get to choose the divergence, even if it is all approximate. To be concrete however, we are not trying to change the divergence being used as much as we would like to easily implement a learnable prior $\pt(\zz)$ that matches $\qp(\zz)$ without any complicated derivations, which is what makes GANs convenient to use.
-
-#+BEGIN_COMMENT
-- learned prior matches deltas -> no generalisation
-- learned prior is between deltas -> images not realistic
-#+END_COMMENT
+However, one downside is the learned inference encoder $\qp(\zz|\xx)$ is inaccurate and cannot be used to faithfully reconstruct examples, due to the fact that there is no explicit reconstruction (likelihood) loss. As mentioned in =dumoulin2016adversarially= however one could learn a separate encoder in a post-hoc fashion to address this issue. This issue is also addressed in =li2020decomposed=.
 
 ** cVAEs and conditional Gaussian diffusion models
 
@@ -839,7 +825,9 @@ In conclusion, we have:
 - Introduced two conditional variants, corresponding to whether $\ZZ$ and $\YY$ are independent and dependent. For the independent case, we highlighted its usefulness in controllable generation.
 - Discussed the need to carefully balance the weight of the KL term, which balances the trade-off between sample quality and coverage with respect to the inference and generative distributions. We also derived a mutual information based interpretation of the KL term in order to elucidate its effect on training.
 - Presented experiments on toy 2D datasets which corroborate our theoretical observations.
-- Presented a possible solution to VAEs via the use of a bidirectional GAN.
+- Discussed how one can avoid the difficulty of optimising a VAE by instead training an adversarial autoencoder and learning a prior distribution to match the inference marginal. From this discussion we arrive at the bidirectional GAN, which has a very close relationship with the VAE in the sense that the former minimises an arbitrary $f$ divergence between the generative and inference pathways while the latter uses the forward KL divergence. This brings us full circle!
+
+[fn:5] The tilde emphasises that GANs are approximating a particular $f$-divergence, see =goodfellow2020generative=.
 
 * Appendix
 :PROPERTIES:
@@ -975,5 +963,14 @@ Here is an artifact from an old research project I did involving controllable ge
 - =dhariwal2021diffusion= Dhariwal, P., & Nichol, A. (2021). Diffusion models beat GANs on image synthesis. Advances in Neural Information Processing Systems, 34(), 8780–8794.
 - =kumar2017variational= Kumar, A., Sattigeri, P., & Balakrishnan, A. (2017). Variational inference of disentangled latent concepts from unlabeled observations. arXiv preprint arXiv:1711.00848, (), .
 - =dumoulin2016adversarially= Dumoulin, V., Belghazi, I., Poole, B., Lamb, A., Arjovsky, M., Mastropietro, O., & Courville, A. (2016). Adversarially Learned Inference. In , International Conference on Learning Representations (pp. ). : .
+- =donahue2016adversarial= Donahue, J., Kr\"ahenb\"uhl, Philipp, & Darrell, T. (2016). Adversarial feature learning. arXiv preprint arXiv:1605.09782, (), .
 - =nowozin2016f= Nowozin, S., Cseke, B., & Tomioka, R. (2016). F-gan: training generative neural samplers using variational divergence minimization. Advances in neural information processing systems, 29(), .
 - =zhang2019variational= Zhang, M., Bird, T., Habib, R., Xu, T., & Barber, D. (2019). Variational f-divergence minimization. arXiv preprint arXiv:1907.11891, (), .
+- =makhzani2015adversarial= Makhzani, A., Shlens, J., Jaitly, N., Goodfellow, I., & Frey, B. (2015). Adversarial autoencoders. arXiv preprint arXiv:1511.05644, (), .
+- =larsen2016autoencoding= Larsen, A. B. L., S\onderby, S\oren Kaae, Larochelle, H., & Winther, O. (2016). Autoencoding beyond pixels using a learned similarity metric. In , International conference on machine learning (pp. 1558–1566). : .
+- =mescheder2017adversarial= Mescheder, L., Nowozin, S., & Geiger, A. (2017). Adversarial variational bayes: unifying variational autoencoders and generative adversarial networks. In , International conference on machine learning (pp. 2391–2400). : .
+- =chen2016infogan= Chen, X., Duan, Y., Houthooft, R., Schulman, J., Sutskever, I., & Abbeel, P. (2016). InfoGAN: interpretable representation learning by information maximizing generative adversarial nets. Advances in neural information processing systems, 29(), .
+- =van2017neural= Van Den Oord, A., Vinyals, O., & others, (2017). Neural discrete
+  representation learning. Advances in neural information processing
+  systems, 30(), .
+- =goodfellow2020generative= Goodfellow, I., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S., Courville, A., … (2020). Generative adversarial networks. Communications of the ACM, 63(11), 139–144.
