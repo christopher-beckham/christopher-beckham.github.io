@@ -3,6 +3,7 @@ title: A deep dive into conditional variational autoencoders
 tldr: An excerpt from my PhD thesis. We discuss various difficulties involved in correctly training variational autoencoders, as well as elucidate their behaviour from a theoretical perspective.
 description: VAEs can be difficult to understand and get working right. In this post I will dive into the theory of them, derive interesting equations which elucidate their behaviour, corroborate those insights on a simple toy dataset, as well as discuss how their issues can be alleviated with adversarial methods.
 image: /assets/cvae/cvae-dag-indep-issue.png
+author: Christopher Beckham
 layout: default_latex
 ---
 
@@ -525,7 +526,7 @@ Finally, in Figure 5 for \(\beta = 1\)  we finally see that the green points get
 
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta1_zspace.png" width="700" alt="" /> 
-<figcaption><b><i> (Figure 5b, bottom) q<sub>Φ</sub>(z) looks more or less the same as p(z). Here, the distributions $q<sub>Φ</sub>(z|y=0)$ and $q<sub>Φ</sub>(z|y=1)$ appear roughly the same, so we can say that $I<sub>Φ</sub>(Z; Y)$ is small.</i></b></figcaption>
+<figcaption><b><i> (Figure 5b, bottom) q<sub>Φ</sub>(z) looks more or less the same as p(z). Here, the distributions q<sub>Φ</sub>(z|y=0) and q<sub>Φ</sub>(z|y=1) appear roughly the same, so we can say that I<sub>Φ</sub>(Z; Y) is small.</i></b></figcaption>
 </figure>
 <br />
 </div>

@@ -46,6 +46,7 @@ title: A deep dive into conditional variational autoencoders
 tldr: An excerpt from my PhD thesis. We discuss various difficulties involved in correctly training variational autoencoders, as well as elucidate their behaviour from a theoretical perspective.
 description: VAEs can be difficult to understand and get working right. In this post I will dive into the theory of them, derive interesting equations which elucidate their behaviour, corroborate those insights on a simple toy dataset, as well as discuss how their issues can be alleviated with adversarial methods.
 image: /assets/cvae/cvae-dag-indep-issue.png
+author: Christopher Beckham
 layout: default_latex
 ---
 
