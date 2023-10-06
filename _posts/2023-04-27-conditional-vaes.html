@@ -1,6 +1,8 @@
 ---
 title: A deep dive into conditional variational autoencoders
 tldr: An excerpt from my PhD thesis. We discuss various difficulties involved in correctly training variational autoencoders, as well as elucidate their behaviour from a theoretical perspective.
+description: VAEs can be difficult to understand and get working right. In this post I will dive into the theory of them, derive interesting equations which elucidate their behaviour, corroborate those insights on a simple toy dataset, as well as discuss how their issues can be alleviated with adversarial methods.
+image: /assets/cvae/cvae-dag-indep-issue.png
 layout: default_latex
 ---
 
@@ -519,11 +521,11 @@ Finally, in Figure 5 for \(\beta = 1\)  we finally see that the green points get
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta-large2.png" width="700" alt="" /> 
 </figure>
-<figcaption><b><i>(Figure 5a, top): Graphical model of the generative process, corresponding to the case where p(z,y) = p(z)p(y).</i></b></figcaption>
+<figcaption><b><i>(Figure 5a, top): Sample diversity has suffered with respect to both inference and generative distributions, and this can be seen in the right-most cluster (points lie on a narrow line). Quantitatively, the encoder q<sub>Φ</sub>(z|x,y) is no longer very accurate, with a reconstruction error of ~1.61.</i></b></figcaption>
 
 <figure>
 <img class="figg" src="/assets/cvae/vae_2d_beta1_zspace.png" width="700" alt="" /> 
-<figcaption><b><i> (Figure 5b, bottom) q(z) looks more or less the same as p(z). Here, the distributions q(z|y=0) and q(z|y=1) are roughly the same, so there is almost no mutual information between Z and Y.</i></b></figcaption>
+<figcaption><b><i> (Figure 5b, bottom) q<sub>Φ</sub>(z) looks more or less the same as p(z). Here, the distributions $q<sub>Φ</sub>(z|y=0)$ and $q<sub>Φ</sub>(z|y=1)$ appear roughly the same, so we can say that $I<sub>Φ</sub>(Z; Y)$ is small.</i></b></figcaption>
 </figure>
 <br />
 </div>
@@ -703,7 +705,7 @@ where samples \(\zz \sim \ptgreen(\zz)\) are computed via \(\zz = G_{\theta}(\et
 <figure>
 <img class="figg" src="/assets/cvae/adv-autoencoder.png" width="500" alt="" />
 </figure>
-<figcaption><b><i>A deterministic autoencoder augmented with a GAN, which is comprised of generator G and discriminator D.</i></b></figcaption>
+<figcaption><b><i>Proposed adversarial autoencoder, where the prior p(z) is now replaced with a learnable prior p<sub>θ</sub>(z) which is implemented with a GAN generator G<sub>θ</sub>. The generator is trained to map samples from a simple prior p(η) to those in z space. The corresponding loss in Equation \ref{eq:cvae:adv_ae} is similar to the ELBO, but rather than a per-example KL term we compute an adversarial loss between the marginals q<sub>Φ</sub>(z) and p<sub>θ</sub>(z).</i></b></figcaption>
 <br />
 </div>
 
