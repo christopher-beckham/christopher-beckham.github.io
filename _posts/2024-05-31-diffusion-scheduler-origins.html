@@ -1,0 +1,203 @@
+---
+title: EDM diffusion models - a Jupyter implementation, and how they are implemented in practice
+description: todo
+layout: default_latex
+---
+
+<h1>EDM diffusion models - a Jupyter implementation, and how they are implemented in practice</h1>
+
+<div hidden>
+<!-- This should be consistent with LATEX_HEADER -->
+$$\newcommand{\dd}{\mathrm{d}}$$
+$$\newcommand{\sigmadot}{\dot{\sigma}}$$
+$$\newcommand{\sdot}{\dot{s}}$$
+$$\newcommand{\sigmadown}{\sigma_{\text{down},(i,i+1)}}$$
+$$\newcommand{\sigmaup}{\sigma_{\text{up},(i,i+1)}}$$
+</div>
+
+<div id="outline-container-org291819c" class="outline-2">
+<h2 id="org291819c"><span class="section-number-2">1.</span> Introduction</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+I wrote a self-contained implementation of <a href="https://arxiv.org/abs/2206.00364">NVIDIA's EDM</a> in a Jupyter notebook. You may find it useful for the following reasons:
+</p>
+<ul class="org-ul">
+<li>You want to explore diffusion models on toy datasets (why? Because toy datasets train fast and require little compute);</li>
+<li>You want to <i>understand</i> diffusion models from a more fundamental perspective (toy datasets are great for that) (also see <a href="https://www.youtube.com/watch?v=ORHFOnaEzPc">Ali Rahimi's NeurIPS '17 talk</a> on why simple toy experiments are great);</li>
+<li>You want to try out new schedulers which fit under the particular framework proposed by EDM (e.g. defining novel parameterisations of \(\sigma(t)\) and \(s(t)\)).</li>
+<li>You want a "full" implementation of the general algorithms, i.e. being able to arbitrarily specify \(\sigma(t)\) and \(s(t)\).</li>
+<li>You want to generate fun mp4's showing the diffusion trajectory of a 1D dataset (like below).</li>
+</ul>
+
+<p>
+<a id="orge9a817e"></a>
+</p>
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/hf_schedulers/edm-notebook-animation.gif" width="700" alt="" /> 
+</figure>
+<figcaption><b>EDM trained on a bimodal Gaussian dataset. Here we see the diffusion trajectory from t=100 (prior distribution) to t=0 (data distribution).</b></figcaption>
+<br />
+</div>
+
+<p>
+The notebook itself is self-contained and makes no reference to this blog post, however the following information may be useful to you if you want to know more about how EDM's algorithms are implemented for two major open source diffusion projects (<code>diffusers</code> and <code>ComfyUI</code>, the latter of which uses <code>k-diffusion</code>).
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgb0929a6" class="outline-2">
+<h2 id="orgb0929a6"><span class="section-number-2">2.</span> Schedulers</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+A particular class of scheduler algorithms implemented by <code>k-diffusion</code> (and by extension, ComfyUI and HuggingFace' <code>diffusers</code>) have rather opaque names because they don't clearly reflect their origins, nor are they complete implementations of the original algorithms from which they were derived. These algorithms are actually based on the "Algorithms 1 &amp; 2" proposed in NVIDIA's EDM <a href="#citeproc_bib_item_1">[1]</a>. Essentially, they are the deterministic and stochastic variants (respectively) of an ODE, one which was designed to encapsulate all of the different diffusion model variants used at the time. That ODE has the following form:
+</p>
+
+\begin{align}
+\label{org75fa97a}
+\dd x & = \Big[ \frac{\dot{s}(t)}{s(t)}x - s(t)^{2} \dot{\sigma}(t) \sigma(t) \nabla_{x} \log p\big(x/s(t); \sigma(t)\big) \Big] \dd t,
+\end{align}
+
+<p>
+where: \(s(t)\) is some time-dependent scaling function of the input \(x\); \(\sigma(t)\) is the time dependent noise variable; and \(\dot{s}(t) = \frac{\partial s(t)}{\partial t}\) and \(\dot{\sigma}(t) = \frac{\partial \sigma(t)}{\partial t}\) . Along with other hyperparameters (such as how precisely the timesteps are discretised), this ODE is able to generalise the deterministic components of the sampling algorithms found in other papers.
+</p>
+
+<p>
+<a id="orgc9f86b0"></a>
+</p>
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/hf_schedulers/flowchart.png" width="700" alt="" /> 
+</figure>
+<figcaption><b>Relationship between Algorithms 1 & 2 and how they are implemented in k-diffusion and diffusers.</b></figcaption>
+<br />
+</div>
+
+<p>
+Both algorithms are "somewhat" implemented in the following libraries:
+</p>
+<ul class="org-ul">
+<li><code>k-diffusion</code>, which takes the name <code>sample_heun</code>.</li>
+<li><code>diffusers</code>, which takes the name <code>HeunDiscreteScheduler</code>;</li>
+<li>Both have more computationally efficient variants (i.e. without the second order steps) called <code>sample_euler</code> and <code>EulerDiscreteScheduler</code>, respectively;</li>
+<li>but there are differences to the original paper and sometimes the implementations are not complete (in the case of <code>diffusers</code>).</li>
+</ul>
+
+<p>
+The way Algorithm 1 is presented in the EDM paper <a href="#citeproc_bib_item_1">[1]</a> is "general" since it assumes no particular \(\sigma(t)\) and \(s(t)\) (see Figure <a href="#org293860e">2</a>). In terms of how they are implemented in practice:
+</p>
+<ul class="org-ul">
+<li>In <a href="https://github.com/crowsonkb/k-diffusion/blob/master/k_diffusion/sampling.py#L159-L184">k-diffusion</a> it's called <code>sample_heun</code>, but only if we pass \(\gamma = 0\) into the function so that the stochastic part (the noise injection component proposed by Alg. 2) disappears. Also it's assumed \(\sigma(t)=t\) and \(s(t)=1\), so it's not the general form of the algorithm as shown in Fig. <a href="#org293860e">2</a>.</li>
+<li>In <a href="https://huggingface.co/docs/diffusers/en/api/schedulers/heun">diffusers</a> it's called <code>HeunDiscreteScheduler</code>. Also it's the same parameterisation as k-diffusion, but \(\gamma = 0\) is only supported (as of 21/06/2024) which means that it <i>literally does</i> turn into Algorithm 1. (The reason for only supporting \(\gamma = 0\) seems to stem from the awkwardness of the fact that the the U-Net backbones in <code>diffusers</code> require discrete indices to be passed to the forward method instead of continuous values, which means one would have to back-calculate the appropriate "timestep" from \(\hat{\sigma}\).)</li>
+</ul>
+
+<p>
+Algorithm 2 in <a href="#citeproc_bib_item_1">[1]</a> is basically a stochastic variant of Algorithm 1, but the paper does <i>not</i> present the general form of the algorithm. Rather, it assumes \(\sigma(t) = t\) and \(s(t) = 1\) (see Figure <a href="#orge9543e2">2</a>). In terms of code:
+</p>
+<ul class="org-ul">
+<li><a href="https://github.com/crowsonkb/k-diffusion/blob/master/k_diffusion/sampling.py#L159-L184">k-diffusion</a> implements it with that specific choice of  \(\sigma(t)=t\) and \(s(t)=t\).</li>
+<li>For <code>diffusers</code>, <code>HeunDiscreteScheduler</code> does not support \(\gamma > 0\) yet and so there is no support for Algorithm 2 <i>per se</i>. However, <code>EulerDiscreteScheduler</code> <i>does</i> (confusingly).</li>
+<li>While the specific choices of \(\sigma(t)\) and \(s(t)\) are well justified (they perform the best empirically), having the more general forms of the algorithms would open them up to exploring different forms of the general ODE.</li>
+</ul>
+
+<p>
+Quite frankly, I'm not the biggest fan of these scheduler names because they don't reflect the fact they are EDM-specific algorithms (even if the attribution is there in the docstrings). Why can't we simply just implement one mega-algorithm called <code>edm_sampler</code> and allow the option for a <code>use_second_order</code> flag as well as <code>gamma</code> so that it encapsulates everything? Or at least use class names like <code>edm_deterministic_sampler</code>, <code>edm_stochastic_sampler</code>, etc. I suppose the reason whh they are named so "generically" (for lack of a better term) is that the general-form ODE proposed by EDM really does encompass (as of time of writing) "more or less" all of the diffusion variants commonly used. Therefore, to just give it a name like "{Euler,Heun}DiscreteScheduker" is not unreasonable.
+</p>
+
+<p>
+Lastly, there is one additional algorithm which shares the same naming convention as the others but really has nothing to do with the EDM paper. This is the "ancestral sampling algorithm" based off Jonathon Ho's DDPM paper <a href="#citeproc_bib_item_2">[2]</a>. In diffusers it's called <code>EulerAncestralDiscreteSampler</code> (see <a href="https://github.com/huggingface/diffusers/blob/v0.30.3/src/diffusers/schedulers/scheduling_euler_ancestral_discrete.py#L132">here</a>) and in k-diffusers it's called <code>sample_euler_ancestral</code> (see <a href="https://github.com/crowsonkb/k-diffusion/blob/master/k_diffusion/sampling.py#L138-L155">here</a>). More info on that is in Sec. <a href="#org5ca9c25">2.1</a>.
+</p>
+
+<p>
+<a id="org293860e"></a>
+</p>
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/hf_schedulers/edm-alg1.png" width="700" alt="" /> 
+</figure>
+<figcaption><b>Algorithm 1 from EDM. Here the sigma and scaling functions remain arbitrary.</b></figcaption>
+</div>
+
+<p>
+<a id="orge9543e2"></a>
+</p>
+<div id="images">
+<figure>
+<img class="figg" src="/assets/hf_schedulers/edm-alg2.png" width="700" alt="" /> 
+</figure>
+<figcaption><b>Algorithm 2 from EDM. Here we can see a specific parameterisation for the sigma and scaling functions. Otherwise, the general form of this algorithm should match Algorithm 1 on top of the stochastic component.</b></figcaption>
+<br />
+</div>
+</div>
+
+<div id="outline-container-org4ac0df0" class="outline-3">
+<h3 id="org4ac0df0"><span class="section-number-3">2.1.</span> <a id="org5ca9c25"></a>  Ancestral sampler</h3>
+<div class="outline-text-3" id="text-2-1">
+<p>
+Both k-diffusion and diffusers have a version of the <i>Euler</i>-based version of Algorithm 2. To make matters even more confusing, the <code>sample_euler_ancestral</code> algorithm is basically the Euler variant of Algorithm 2 but with the EDM-specific noise injection mechanism cut out in favour of ancestral sampling. Ancestral sampling is detailed in Appendix F of the continuous-time score matching paper from Song et al. <a href="#citeproc_bib_item_3">[3]</a>. The update rule for this is:
+</p>
+
+\begin{align}
+x_{i+1} & = x_i + (\sigma_{i+1}^2 - \sigma_{i}^2) s_{\theta}(x_i, \sigma_i) + \sqrt{\frac{\sigma_{i+1}^2(\sigma_{i}^{2}-\sigma_{i+1}^2)}{\sigma_i^2}}z_i \\
+& = x_i + (\sigma_{i+1}^2 - \sigma_{i}^2) s_{\theta}(x_i, \sigma_i) + \frac{\sigma_{i+1}}{\sigma_i} \sqrt{\sigma_i^2 - \sigma_{i+1}^2} z_i,
+\end{align}
+
+<p>
+where \(s_{\theta}(x, \sigma) = (x - D(x; \sigma) / \sigma^2\) and \(z_i \sim \mathcal{N}(0, \mathbf{I})\). (Unlike in <a href="#citeproc_bib_item_3">[3]</a>, I am being consistent with the rest of this post by denoting \(\sigma_0\) as the highest noise scale as \(\sigma_{T-1}\) as the smallest.)
+</p>
+
+<p>
+This equation can basically be seen as doing the ODE step (the first two terms on the RHS) but then injecting noise \(\sim \mathcal{N}(0, \sigmaup)\). For reasons not clear to me yet, this is not the exact same as what's implemented in k-diffusion (see <a href="https://github.com/crowsonkb/k-diffusion/blob/master/k_diffusion/sampling.py#L138-L155">here</a> and <a href="https://github.com/crowsonkb/k-diffusion/blob/master/k_diffusion/sampling.py#L51-L58">here</a>), which implements something seemingly a lot more complicated:
+</p>
+
+\begin{align}
+x_{i+1} = x_i + (\sigmadown - \sigma_{i}) s_{\theta}(x_i, \sigma_i) + \underbrace{\text{min}\Big(\frac{\sigma_{i+1}}{\sigma_i} \sqrt{\sigma_i^2 - \sigma_{i+1}^2}, \sigma_{i+1}\Big)}_{\sigmaup} z_i,
+\end{align}
+
+<p>
+and \(\sigmadown = \sqrt{\sigma_{i+1}^2 - \sigmaup^2}\). (I've also redefined \(\sigmaup\) here to also include the min.) (If anyone knows more about this, please reach out so I can update this post.)
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org71f0f35" class="outline-2">
+<h2 id="org71f0f35"><span class="section-number-2">3.</span> Conclusion</h2>
+<div class="outline-text-2" id="text-3">
+<p>
+In conclusion, I have shared a Jupyter implementation of EDM on toy datasets, as well as elucidate (pun intended) some of the opaque naming conventions used in the practical implementations which implement EDM's algorithms.
+</p>
+
+
+<style>.csl-left-margin{float: left; padding-right: 0em;} .csl-right-inline{margin: 0 0 0 1.7999999999999998em;}</style><h2 class='citeproc-org-bib-h2'>Bibliography</h2>
+<div class="csl-bib-body">
+  <div class="csl-entry"><a id="citeproc_bib_item_1"></a>
+    <div class="csl-left-margin">[1]</div><div class="csl-right-inline">T. Karras, M. Aittala, T. Aila, and S. Laine, “Elucidating the design space of diffusion-based generative models,” <i>Advances in Neural Information Processing Systems</i>, vol. 35, pp. 26565–26577, 2022.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_2"></a>
+    <div class="csl-left-margin">[2]</div><div class="csl-right-inline">J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic models,” <i>Advances in neural information processing systems</i>, vol. 33, pp. 6840–6851, 2020.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_3"></a>
+    <div class="csl-left-margin">[3]</div><div class="csl-right-inline">Y. Song, J. Sohl-Dickstein, D. P. Kingma, A. Kumar, S. Ermon, and B. Poole, “Score-based generative modeling through stochastic differential equations,” <i>arXiv preprint arXiv:2011.13456</i>, 2020.</div>
+  </div>
+</div>
+
+<div id="disqus_thread"></div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = '{{ page.url | absolute_url }}';
+      this.page.identifier = '{{ page.url | absolute_url }}';
+    };
+    (function() {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://www-beckham-nz.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+</div>
+</div>
