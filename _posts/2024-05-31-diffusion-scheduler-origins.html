@@ -1,6 +1,6 @@
 ---
 title: EDM diffusion models - a Jupyter implementation, and how they are implemented in practice
-description: todo
+description: I wrote a self-contained implementation of NVIDIA's EDM diffusion model in a Jupyter notebook, as well as its associated sampling algorithms. I also discuss the rather confusing names used for real-world implementations of those algorithms.
 layout: default_latex
 ---
 
@@ -19,18 +19,22 @@ $$\newcommand{\sigmaup}{\sigma_{\text{up},(i,i+1)}}$$
 <h2 id="org291819c"><span class="section-number-2">1.</span> Introduction</h2>
 <div class="outline-text-2" id="text-1">
 <p>
-I wrote a self-contained implementation of <a href="https://arxiv.org/abs/2206.00364">NVIDIA's EDM</a> in a Jupyter notebook. You may find it useful for the following reasons:
+I wrote a self-contained implementation of <a href="https://arxiv.org/abs/2206.00364">NVIDIA's EDM</a> in a <a href="https://github.com/christopher-beckham/toy-edm">Jupyter notebook</a>. You may find it useful for the following reasons:
 </p>
 <ul class="org-ul">
 <li>You want to explore diffusion models on toy datasets (why? Because toy datasets train fast and require little compute);</li>
 <li>You want to <i>understand</i> diffusion models from a more fundamental perspective (toy datasets are great for that) (also see <a href="https://www.youtube.com/watch?v=ORHFOnaEzPc">Ali Rahimi's NeurIPS '17 talk</a> on why simple toy experiments are great);</li>
 <li>You want to try out new schedulers which fit under the particular framework proposed by EDM (e.g. defining novel parameterisations of \(\sigma(t)\) and \(s(t)\)).</li>
-<li>You want a "full" implementation of the general algorithms, i.e. being able to arbitrarily specify \(\sigma(t)\) and \(s(t)\).</li>
+<li>You want a "full" implementation of the general algorithms, i.e. being able to arbitrarily specify \(\sigma(t)\) and \(s(t)\). (The <a href="https://github.com/NVlabs/edm/blob/main/generate.py#L66-L71">original repo</a> hardcodes those parameterisations.)</li>
 <li>You want to generate fun mp4's showing the diffusion trajectory of a 1D dataset (like below).</li>
 </ul>
 
 <p>
-<a id="orge9a817e"></a>
+You can find the code <a href="https://github.com/christopher-beckham/toy-edm">here</a>.
+</p>
+
+<p>
+<a id="orgc9f86b0"></a>
 </p>
 <div id="images">
 <br />
@@ -64,7 +68,7 @@ where: \(s(t)\) is some time-dependent scaling function of the input \(x\); \(\s
 </p>
 
 <p>
-<a id="orgc9f86b0"></a>
+<a id="org763d695"></a>
 </p>
 <div id="images">
 <br />

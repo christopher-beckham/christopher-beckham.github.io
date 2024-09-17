@@ -10,7 +10,7 @@
 #+BEGIN_EXPORT html
 ---
 title: EDM diffusion models - a Jupyter implementation, and how they are implemented in practice
-description: todo
+description: I wrote a self-contained implementation of NVIDIA's EDM diffusion model in a Jupyter notebook, as well as its associated sampling algorithms. I also discuss the rather confusing names used for real-world implementations of those algorithms.
 layout: default_latex
 ---
 
