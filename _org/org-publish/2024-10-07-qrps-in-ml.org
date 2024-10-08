@@ -13,7 +13,7 @@
 #+BEGIN_EXPORT html
 ---
 title: paper thoughts -- questionable research practices (QRPs) in machine learning
-description: notes, derivations, and thoughts I have written to help me understand score-based generative models via Langevin dynamics (SMLDs).
+description: my thoughts on the paper "questionable research practices in machine learning" by leech et al
 layout: default_latex
 ---
 
