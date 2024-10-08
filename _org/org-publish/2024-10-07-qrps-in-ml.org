@@ -1,0 +1,82 @@
+#+OPTIONS: toc:nil
+#+LATEX_HEADER: \newcommand{\dd}{\mathrm{d}}
+#+LATEX_HEADER: \newcommand{\sigmadot}{\dot{\sigma}}
+#+LATEX_HEADER: \newcommand{\sdot}{\dot{s}}
+#+LATEX_HEADER: \newcommand{\sigmadown}{\sigma_{\text{down},(i,i+1)}}
+#+LATEX_HEADER: \newcommand{\sigmaup}{\sigma_{\text{up},(i,i+1)}}
+#+bibliography: SomeFile.bib
+#+csl_style: ieee.csl
+
+# If the references do not show nor the citation style, try: 
+# `M-x citeproc-org-setup`
+
+#+BEGIN_EXPORT html
+---
+title: paper thoughts -- questionable research practices (QRPs) in machine learning
+description: notes, derivations, and thoughts I have written to help me understand score-based generative models via Langevin dynamics (SMLDs).
+layout: default_latex
+---
+
+<h1>paper thoughts: questionable research practices (QRPs) in machine learning</h1>
+
+<div hidden>
+<!-- This should be consistent with LATEX_HEADER -->
+</div>
+#+END_EXPORT
+
+I enjoyed reading this paper [cite:@leech2024questionable] and wish I wrote it (or was a part of writing it!). Each section in this post can be cross-referenced with their Table 1:
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/choose-your-weapon/header.jpg" width="400" alt="AI-generated depressed scientist with a knife in his mouth" />
+</figure>
+<figcaption>Stable Diffusion-generated "depressed scientist with a knife in his mouth". I think that was the prompt I used for it.</figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+* Tuning hyperparameters further after test
+
+#+begin_quote
+Another common way to leak information is to tune on the test set: training a model, evaluating it on the test set, and then doing further hyperparameter search or testing again with a different evaluation metric. ... The resulting models are in some sense being implicitly fitted to the test set (since we use the test score as a signal to build the next model).
+#+end_quote
+
+(n.b I originally wrote this [[https://news.ycombinator.com/item?id=41760069][here]] on hackernews but I develop the text a bit further here)
+
+This is very true, and I would argue there is a very prevalent misunderstanding (or just ignorance) towards the distinction between a /validation/ and /test/ set. When the distinction is actually made between the two, the idea is that one performs model selection on the validation set, i.e. find the best HPs such that you minimise (or maximise) some metric that operates on that subset of the data. Once you've found your /most performant/ model according to that metric, you then evaluate that same metric on the test set. Why? Because that becomes your /unbiased/ measure of generalisation error. Note that in a production setting you'll want to get an even  better  model by re-training on all the data available (train + valid + test) under those ideal HPs but that's completely fine: if somebody asks you what the generalisation error of the /re-trained/ model is, you simply point them to the test set metric computed on the model you trained /beforehand/, the one where you followed the train-valid-test pipeline.
+
+This distinction goes against the publish or perish mentality of academia. Since reviewers (and by association, researchers) are obsessed with "SOTA", "novelty", and *bold numbers*, a table of results purely composed of metrics computed on the test set is not easily controllable from the point of view of actually "passing" the peer review process (if you want to be ethical about it). Conversely, what's /easily controllable/ is a table full of those same metrics computed on the validation set: just perform extremely aggressive model selection until your best model gets higher numbers than all the baselines in the table. However, rather than report separate tables for validation and test set, the common QRP is to just treat them as one and the same.
+
+Admittedly, it is very anxiety-inducing to leave your fate up to a held-out test set whose values you can't optimise for, especially when your career is at stake. Interestingly, if your validation set numbers were great /only/ for the test set, it would indicate you were "overfitting" via model validation. That would suggest either making the model search /less aggressive/ or going for a simpler model class. The latter approach is called Occam's razor, but does our field /really encourage simplicity/? (See "Superfluous cogs" at Sec. 3.3.1 of [cite:@leech2024questionable])
+
+# Now, you could report both validation and test set numbers in different tables (in fact, I did this for one of my papers). If your test set numbers are bad compared to your valid set numbers then it's probably a sign you overtuned. That would actually encourage an "Occam's razor" approach to research, where you try not to over-engineer solutions. The problem is that 
+
+
+# Now if you only report validation set metrics then it's worth saying that the results are likely to be overoptimistic (because it's not apparent that everyone knows this). If you report both validation and test set numbers and the latter numbers are bad, you just create more surface area for a paper rejection. 
+
+# In retrospect, it would have been better if common dataset libraries actually forced a distinction between training, validation, and test. For instance, see torchvision:
+
+#+begin_quote
+To distinguish this from classic contamination (training on test data), Hosseini et al. [2020] call this ‘over-hyping’ and note that it biases results even if every iteration of the cycle uses cross-validation
+properly.
+#+end_quote
+
+It goes back even further than that, see [cite:@domingos2012few] (back in the olden days before we had deep learning):
+
+#+begin_quote
+Cross-validation can help to combat overfitting, for example by using it to choose the best size of [model] to learn. But it is no panacea, since if we use it to make too many parameter  choices it can itself start to overfit.
+#+end_quote
+
+Even with cross-validation, we have to mitigate against this. The easiest solution is to simply hold out a test set which is independent from the cross-validation procedure. One can even have each fold of cross-validation serve as a test set (in the context of an "inner" cross-validation which handles training and model selection).
+
+* Over/underclaiming
+
+To be done. There is a piece I'd like to write about the weirdness of evaluation metrics in generative models.
+
+#+BIBLIOGRAPHY: here
+\\
+
+# [fn:1] The validation set /need not/ be predefined, and the wary machine learner would simply create their own validation set by cutting out a chunk of the training set. But the point is that there might actually be a "foolproofing" effect by doing so.
+

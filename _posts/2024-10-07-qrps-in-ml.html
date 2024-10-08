@@ -1,0 +1,96 @@
+---
+title: paper thoughts -- questionable research practices (QRPs) in machine learning
+description: notes, derivations, and thoughts I have written to help me understand score-based generative models via Langevin dynamics (SMLDs).
+layout: default_latex
+---
+
+<h1>paper thoughts: questionable research practices (QRPs) in machine learning</h1>
+
+<div hidden>
+<!-- This should be consistent with LATEX_HEADER -->
+</div>
+
+<p>
+I enjoyed reading this paper <a href="#citeproc_bib_item_1">[1]</a> and wish I wrote it (or was a part of writing it!). Each section in this post can be cross-referenced with their Table 1:
+</p>
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/choose-your-weapon/header.jpg" width="400" alt="AI-generated depressed scientist with a knife in his mouth" />
+</figure>
+<figcaption>Stable Diffusion-generated "depressed scientist with a knife in his mouth". I think that was the prompt I used for it.</figcaption>
+<br />
+</div>
+
+<div id="outline-container-org48383bb" class="outline-2">
+<h2 id="org48383bb"><span class="section-number-2">1.</span> Tuning hyperparameters further after test</h2>
+<div class="outline-text-2" id="text-1">
+<blockquote>
+<p>
+Another common way to leak information is to tune on the test set: training a model, evaluating it on the test set, and then doing further hyperparameter search or testing again with a different evaluation metric. &#x2026; The resulting models are in some sense being implicitly fitted to the test set (since we use the test score as a signal to build the next model).
+</p>
+</blockquote>
+
+<p>
+(n.b I originally wrote this <a href="https://news.ycombinator.com/item?id=41760069">here</a> on hackernews but I develop the text a bit further here)
+</p>
+
+<p>
+This is very true, and I would argue there is a very prevalent misunderstanding (or just ignorance) towards the distinction between a <i>validation</i> and <i>test</i> set. When the distinction is actually made between the two, the idea is that one performs model selection on the validation set, i.e. find the best HPs such that you minimise (or maximise) some metric that operates on that subset of the data. Once you've found your <i>most performant</i> model according to that metric, you then evaluate that same metric on the test set. Why? Because that becomes your <i>unbiased</i> measure of generalisation error. Note that in a production setting you'll want to get an even  better  model by re-training on all the data available (train + valid + test) under those ideal HPs but that's completely fine: if somebody asks you what the generalisation error of the <i>re-trained</i> model is, you simply point them to the test set metric computed on the model you trained <i>beforehand</i>, the one where you followed the train-valid-test pipeline.
+</p>
+
+<p>
+This distinction goes against the publish or perish mentality of academia. Since reviewers (and by association, researchers) are obsessed with "SOTA", "novelty", and <b>bold numbers</b>, a table of results purely composed of metrics computed on the test set is not easily controllable from the point of view of actually "passing" the peer review process (if you want to be ethical about it). Conversely, what's <i>easily controllable</i> is a table full of those same metrics computed on the validation set: just perform extremely aggressive model selection until your best model gets higher numbers than all the baselines in the table. However, rather than report separate tables for validation and test set, the common QRP is to just treat them as one and the same.
+</p>
+
+<p>
+Admittedly, it is very anxiety-inducing to leave your fate up to a held-out test set whose values you can't optimise for, especially when your career is at stake. Interestingly, if your validation set numbers were great <i>only</i> for the test set, it would indicate you were "overfitting" via model validation. That would suggest either making the model search <i>less aggressive</i> or going for a simpler model class. The latter approach is called Occam's razor, but does our field <i>really encourage simplicity</i>? (See "Superfluous cogs" at Sec. 3.3.1 of <a href="#citeproc_bib_item_1">[1]</a>)
+</p>
+
+
+<blockquote>
+<p>
+To distinguish this from classic contamination (training on test data), Hosseini et al. [2020] call this ‘over-hyping’ and note that it biases results even if every iteration of the cycle uses cross-validation
+properly.
+</p>
+</blockquote>
+
+<p>
+It goes back even further than that, see <a href="#citeproc_bib_item_2">[2]</a> (back in the olden days before we had deep learning):
+</p>
+
+<blockquote>
+<p>
+Cross-validation can help to combat overfitting, for example by using it to choose the best size of [model] to learn. But it is no panacea, since if we use it to make too many parameter  choices it can itself start to overfit.
+</p>
+</blockquote>
+
+<p>
+Even with cross-validation, we have to mitigate against this. The easiest solution is to simply hold out a test set which is independent from the cross-validation procedure. One can even have each fold of cross-validation serve as a test set (in the context of an "inner" cross-validation which handles training and model selection).
+</p>
+</div>
+</div>
+
+<div id="outline-container-org893fcdc" class="outline-2">
+<h2 id="org893fcdc"><span class="section-number-2">2.</span> Over/underclaiming</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+To be done. There is a piece I'd like to write about the weirdness of evaluation metrics in generative models.
+</p>
+
+
+<style>.csl-left-margin{float: left; padding-right: 0em;} .csl-right-inline{margin: 0 0 0 1.7999999999999998em;}</style><h2 class='citeproc-org-bib-h2'>Bibliography</h2>
+<div class="csl-bib-body">
+  <div class="csl-entry"><a id="citeproc_bib_item_1"></a>
+    <div class="csl-left-margin">[1]</div><div class="csl-right-inline">G. Leech, J. J. Vazquez, M. Yagudin, N. Kupper, and L. Aitchison, “Questionable practices in machine learning,” <i>arXiv preprint arXiv:2407.12220</i>, 2024.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_2"></a>
+    <div class="csl-left-margin">[2]</div><div class="csl-right-inline">P. Domingos, “A few useful things to know about machine learning,” <i>Communications of the ACM</i>, vol. 55, no. 10, pp. 78–87, 2012.</div>
+  </div>
+</div>
+<p>
+<br />
+</p>
+</div>
+</div>
