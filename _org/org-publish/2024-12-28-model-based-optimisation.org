@@ -1,0 +1,422 @@
+#+OPTIONS: toc:nil
+#+LATEX_HEADER: \newcommand{\ft}{f_{\theta}}
+#+LATEX_HEADER: \newcommand{\ftrain}{f_{\text{train}}}
+#+LATEX_HEADER: \newcommand{\fvalid}{f_{\text{valid}}}
+#+LATEX_HEADER: \newcommand{\ftest}{f_{\text{test}}}
+#+LATEX_HEADER: \newcommand{\fphi}{f_{\phi}}
+#+LATEX_HEADER: \newcommand{\ds}{\mathcal{D}}
+#+LATEX_HEADER: \newcommand{\pt}{p_{\theta}}
+#+LATEX_HEADER: \newcommand{\ptnew}{p_{\theta, \text{new}}}
+#+LATEX_HEADER: \newcommand{\ptrain}{p_{\text{train}}}
+#+LATEX_HEADER: \newcommand{\pvalid}{p_{\text{valid}}}
+#+LATEX_HEADER: \newcommand{\dtrain}{\mathcal{D}_{\text{train}}}
+#+LATEX_HEADER: \newcommand{\dvalid}{\mathcal{D}_{\text{valid}}}
+#+LATEX_HEADER: \newcommand{\dtest}{\mathcal{D}_{\text{test}}}
+#+LATEX_HEADER: \newcommand{\argmax}{\text{argmax}}
+#+LATEX_HEADER: \usepackage{tcolorbox}
+#+bibliography: mbo.bib
+#+cite_export: csl ieee.csl
+
+#+BEGIN_EXPORT html
+---
+title: bridging offline and online model-based optimisation
+description: TODO
+layout: default_latex
+---
+
+<h1>bridging offline and online model-based optimisation</h1>
+
+<div hidden>
+<!-- This should be consistent with LATEX_HEADER -->
+$$\newcommand{\argmax}{\text{argmax}}$$
+$$\newcommand{\ft}{f_{\theta}}$$
+$$\newcommand{\ftrain}{f_{\text{train}}}$$
+$$\newcommand{\fvalid}{f_{\text{valid}}}$$
+$$\newcommand{\ftest}{f_{\text{test}}}$$
+$$\newcommand{\fphi}{f_{\phi}}$$
+$$\newcommand{\ftt}{f_{\theta}}$$
+$$\newcommand{\ds}{\mathcal{D}}$$
+$$\newcommand{\pt}{p_{\theta}}$$
+$$\newcommand{\ptnew}{p_{\theta, \text{new}}}$$
+$$\newcommand{\ptrain}{p_\text{train}}$$
+$$\newcommand{\pvalid}{p_\text{valid}}$$
+$$\newcommand{\dtrain}{\mathcal{D}_{\text{train}}}$$
+$$\newcommand{\dvalid}{\mathcal{D}_{\text{valid}}}$$
+$$\newcommand{\dtest}{\mathcal{D}_{\text{test}}}$$
+</div>
+
+#+END_EXPORT
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-header.png" width="600" alt="" />
+</figure>
+<figcaption><b><i>(attribution: cite paper)</i></b></figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+# Some bullshit to be aware of:
+# - org-cite-insert doesn't like enter, you have to do C-M-j
+#   - See https://www.reddit.com/r/orgmode/comments/q58f4f/how_to_actually_insert_a_citation_with_orgcite/
+
+#+TOC: headlines 3
+
+In this blog post, I give a brief introduction to model-based optimisation, explain a fundamental research question I tried to pursue last year in the context of /offline/ model-based optimsiation (one half of the problem), and then reflect on that work and how it relates to /online/ (the other half of the problem).
+
+# I may or may not write a paper on this, it depends on whether people think what I say is worth a damn.
+
+Note that a lot of the stuff I talk about in this post also applies to fine-tuning LLMs, where the reward function represents human feedback.
+
+* intro 
+
+In model-based optimisation we wish to produce inputs $x \in \mathcal{X}$ to maximise a "real-world" reward function $f(x) \in \mathbb{R}^{+}$. By "real world function", we mean that "invoking" that function is to actually execute a real-world process which involves synthethising and scoring that input with a scalar reward. We would like to use such a function to guide a search algorithm to find high scoring candidates (e.g. find $x \approx \argmax \ f(x)$), however this function is typically very expensive to evaluate and therefore requires us to devise methods which can search high-reward samples with as few evaluations of $f$ as possible.
+
+Methods typically involve training a "surrogate" model $\ft$ (intended to be an approximation of $f$) and carefully exploiting it to guide the search. However, since $\ft$ is an approximation it is no longer "exact", and there is a risk that it will over or underscore some of its inputs, especially those which are outside of the distribution of data it was trained on.
+
+MBO can be categorised into two varieties, online and offline. In online, we assume that $f$ /can/ be queried during training. One such instance is Bayesian optimisation applied to this setting: we have a GP regression model $\ft$ and the learning algorithm alternates between proposing candidates $x$ (via some search algorithm) and subsequently invoking the ground truth $y = f(x)$. From this, we can treat $(x,y)$ as a newly acquired data point to incrementally update $\ft$ and the process continues. 
+# Assuming $\ft$ is "expressive" enough and it is economically viable to obtain "enough" samples from $\ft$ (which isn't practical, but more on this later), then surely we can learn a good model.
+
+** offline mbo
+
+In the offline setting, we assume we already have access to a labelled dataset of inputs which we denote $\mathcal{D} = \{x_i,y_i\}_{i=1}^{N}$. The goal is to learn a surrogate $\ft$ on $\ds$ without assuming access to the ground truth $f$ during training or model selection. Instead of referring to $\ft$ we can more generally refer to generative models and define a joint distribution $\pt(x,y)$. This admits different factorisatons due to Bayes' rule and also naturally encompasses the scenario where the user wants to train a surrogate regression model. For instance, the surrogate $\ft(x)$ can be represented with $\pt(y|x)$ and with $p(x)$ is defines a joint distribution, i.e. $\pt(y|x)p(x)$. Conversely, if $\pt(x|y)$ denotes a conditional generative model then when it is combined with $p(y)$ it also defines a joint distribution via $\pt(y|x)p(y)$
+
+# For reasons which will become clearer later on, let us use $\ftrain$ instead of $\ft$ to more explicitly denote this is trained on something. 
+
+Regardless of the precise factorisation, when we have defined a joint generative model $\pt(x,y)$ and have trained it, we can begin to evaluate its performance by sampling inputs from it and synthesising a "test set". This is one nuanced difference from a more "traditional" machine learning pipeline, one in which a test set already exists, is labelled, and the likelihood of it is evaluated with respect to the model (or some other proxy metric in place of likelihood). If a "traditional" evaluation means computing the likelihood of the test data with respect to the model parameters, here we want to do the opposite which is evaluate the likelihood of /samples/ from $\pt$ with respect to the ground truth. This is because the whole point of MBO is to sample new inputs and validate them in the real world, with the hopes that if we do it "just right", we won't waste a lot of money on inputs which are actually bad.
+
+The way we exploit a /pre-trained/ $\pt(x,y)$ to generate high scoring samples depends precisely on the generative model used and other factors. In the case of the factorisation $\pt(x|y)p(y)$, the simplest technique is to define a /new/ prior distribution $p_{\text{new}}(y)$ over large values of $y$. This would invoke a new generative model $p_{\theta,new}(x,y)$.
+
+In order to see how well this model performs, we can simply compute the mean reward of samples coming from this model with respect to $f$. More formally, suppose we have an evaluation metric $\mathcal{M}: \mathbb{P}_{\Theta} \times \mathcal{F} \rightarrow \mathbb{R}$ where $\pt \in \mathbb{P}_{\Theta}$ and $f \in \mathcal{F}$, then one such metric is simply:
+
+\begin{align}
+m_{\text{test}}(\pt; f) = \mathbb{E}_{x \sim \pt} f(x), \tag{1}
+\end{align}
+
+# If we had $f$ then we could for instance compute the mean squared error between $y_i$ and the true reward of $x_i$, however since we ultimately care about our batch of samples being as high scoring as possible however, we could also just compute the mean reward:
+
+# $$\frac{1}{M} \sum_{i=1}^{n} f(\tilde{x}_i), \tag{1} $$
+
+# OUTLINE OF THIS SECTION:
+# ------------------------
+# - model selection use a valid metric, then compute a test score.
+# - typically, the valid and test metrics are the same. however here, the test is too expensive to compute so we can't also just assign that to the validation metric. this means we have to either choose a cheap to compute one a-priori, or find one via correlation.
+#   - give examples, e.g. for LLM we have bleu score vs human feedback.
+# - one nuanced take, you could set aside a test set and have fvalid and ftest as well, but ftest should not be used for model selection, furthermore ftest might give an unreliable measure of performance.
+
+and we compute a Monte Carlo estimate of Eqn. (1) but by passing in the new generative model and $f$. (The Monte Carlo samples from $\pt$ can be thought of as the "test set".)
+
+Since $f$ is expensive to evaluate however, it only makes sense to invoke this at the end of model training and selection, i.e. it is the /test metric/ and we only use it to obtain a final unbiased estimate of model performance. Since it would be too expensive and impractical to use in the context of model selection, we would need to use an approximation of $f$ in its place.[fn:2]
+
+One idea is to split the dataset up into training and validation, train $\pt$ on the training set, and train a "validation surrogate" $\fvalid$ on both splits. Then during model selection, for a set of $n$ candidate models $\theta_1, \dots, \theta_n$ we find the best parameters $\theta$ that maximise the following validation metric:
+
+\begin{align}
+\theta = \argmax_{\theta_i} \ m_{\text{test}}(p_{\theta_i}, \fvalid) \tag{2}
+\end{align}
+
+where the validation metric here is just the test metric (Eqn. (1)) but with $\fvalid$ substituted for $f$. More generally however, the validation and test metric does not need to be the same.[fn:1] In the work I published last year, I wanted to explore whether there was a better choice of validation metric than simply $m_{\text{test}}$ with $f$ swapped out. This concern was partly attributed to the fact that $\fvalid$ can especially be unreliable in the low data regime and can easily assign overconfidence to bad inputs.
+
+In my work, I formalised this problem as first defining a-priori some metrics $m_i$, and then ranking them by seeing how well they are correlated with $m_{\text{test}}$. Since it is a function of $f$ however it isn't practical. We can work around this issue with simulation datasets where it is actually cheap to compute.[fn:3] Simulation environments give cheap access to $f$, but we still shouldn't use it for model selection because it no longer becomes faithful to a real-world MBO problem, one in which that kind of function is actually expensive to compute. If we are doing research involving simulation environments however, then it seems reasonable to exploit the fact that $f$ is cheap-to-compute and find good validation proxies to use in place of it, which can be used a-priori in real-world MBO tasks. This is what I will cover in the next section where I explain more of last year's work.
+
+Lastly, I tried to stress in my work the importance of having a validation set. In offline MBO, it is not always clear if one was used at all, and one of the key benchmarking libraries used for it does not prescribe one by default.
+
+#+BEGIN_COMMENT
+\paragraph{Use of validation set} Compared to other works, the use of a validation set varies and sometimes details surrounding how the data is split is opaque. For example, in \cite{mins} there is no mention of a training or validation set; rather, we assume that only $\dtrain$ and $\dtest$ exists, with the generative model being trained on the former and test oracle on the latter (note that if the test oracle is approximate there is no need for a $\dtest$). This also appears to be the case for \cite{fannjiang2020autofocused}. While Design Bench was proposed to standardise evaluation, its API does not prescribe a validation set\footnote{However, in \cite{trabucco2022designbench} (their Appendix F) some examples are given as to what validation metrics could be used.}. While the training set could in principle be subsetted into a smaller training set and a validation set (such as in \cite{qi2022data}), the latter would no longer carry the same semantic meaning as \emph{our notion} of a validation set, which is intentionally designed to \emph{not be} from the same distribution as the training set. Instead, our evaluation framework code accesses the \emph{full} dataset via an internal method call to Design Bench, and we construct our own validation set from it. We illustrate these differences in Figure \ref{fig:mbo_data_splits}.
+#+END_COMMENT
+
+In summary:
+- Offline MBO is different to a more traditional ML evaluation setup because we want to use the model to generate high scoring samples, and this necessitates creating our own test set where we're uncertain of the labels.
+- The test set we generate is scored with the test metric, which is a function of the ground truth reward function and the samples produced by the generative model (see Equations X and Y).
+- We cannot make the validation and test metrics the same wrt to $f$ since the ground truth is too expensive (or too slow) to compute in the context of hyperparameter tuning. We could substitute $f$ with an approximation, or ponder whether there are better alternatives.
+- The work I published explored the latter, work in which we define reasonable validation metrics to start, and then rank these with how correlated they are with the ground truth. In order to $f$ to be cheap to compute however, we resort to simulation datasets of a similar kind to those in RL.
+
+# ** model validation
+
+# (TODO add figure here showing the cylinders)
+
+# Let us assume $f$ is a real-world function. We want to train a generative model $\pt(x,y)$ from which we can draw samples. Just like any other machine learning workflow, model selection is super important and this depends on a validation metric. Since $f$ is too expensive and impractical to use in the context of model selection, we can use some approximation of it (a "validation surrogate") to help us tune parameters. This would be akin to taking either Eqn. (1) or (2) and replacing $f$ with $\fvalid$. Once model selection is completed, we can compute the final estimate of the generative model's performance by invoking the original Eqns. (1) or (2). which are defined with respect to the ground truth $f$.
+
+# To summarise:
+# - We train a joint generative model $\pt(x,y)$ on the training set $\dtrain$;
+# - We train the "validation surrogate" $\fvalid$ on the union of the training and validation set (which is just the entire dataset $\mathcal{D} = \dtrain \cup \dvalid$);
+# - Model selection.
+
+# For instance, if our dataset is split into a training and validation set, the generative model would be trained on the training set, and the validation surrogate trained on both splits. Once model selection is completed, we can then compute
+
+# It would be too expensive and impractical to use it for hyperparameter tuning (model selection) for the generative model $\pt(x,y)$, so we could instead train a surrogate $\fvalid$. The way $\fvalid$ is used for hyperparameter tuning for the generative model is an open research question.
+
+# To avoid using it, we could use a surrogate model in replace of the ground truth which has been trained on the entire dataset $\mathcal{D}$. Let us call it $\ftest$. Then we train our generative model $\pt(x,y)$ on the training set and use $\ftest$ to score it. At the same time, we don't want to use $\ftest$ for model selection since that would give biased estimates of performance as well, so we instead use a surrogate specifically for model validation called $\fvalid$. Assuming the offline dataset was randomly subsampled into $\dtrain$, $\dvalid$, we could do the following:
+
+[fn:1] The validation metric and test metric here cannot be the same, since the latter relies on expensive-to-compute $f$. This issue can also be seen in other domains, for instance in LLMs the validation metric is a cheap to compute proxy like BLEU score, while the test metric involves human feedback.
+
+[fn:2] Technically, the test metric (Eqn. (1)) could just be a function of a "test surrogate" model $\ftest$ (for instance, if the data is cut up into train / valid / test, train $\fvalid$ on {train,valid} and train $\ftest$ on {train,valid,test}, however now we have to accept that there is a degree of uncertainty involved with the test metric as well.
+
+[fn:3] A similar thing happens in reinforcement learning.
+
+# - one fundamental question is which validation metric to use?
+# - can be chosen a-priori or we could find some good ones
+# - problem is that this mission would require f which is too expensive, or we can use ftest but it's approximate.
+# - could side-step the issue by using simulation environments.
+
+# In terms of obtaining an unbiased estimation of generalisation, we use $\ftest$ and it takes no part in model selection. However, $\ftest$ is also an approximate model. Since $\ftest$ is an approximation there is a risk of it over-scoring examples from the generative model and giving misleading performance estimates. If $f$ is a real-world process then this is a compromise we must live with. Otherwise, we could instead turn to simulation environments, one where $f$ actually lives "in silico" (as in, computer code) but it has the property that it is "exact", which is to say that it "more or less" produces the correct answer for any $x \in \mathcal{X}$. In MBO, the different "flavours" of dataset are the following:
+
+The types of datasets
+- (1) Simulations of real-world phenomena, for instance reinforcement learning environments. In [cite], some examples involve optimising for robot morphologies which are then used with a pre-specified policy to measure how far it can run.
+- (2) Real-world phenomena, e.g. superconductors, but the ground truth comes from the real world and so the best can do is use a test surrogate $\ftest$.
+- (3) Synthetic functions (e.g. see X). These functions are commonly used to test optimisation algorithms, however these are well-supported within the input space or a large hypercube and can make it difficult for generative models to learn any structure in the data.
+
+# In the case of (1), we do have accessible and cheap to compute ground truth. Furthernmor
+
+While (2) is most representative of a real world MBO problem, we can exploit the "in silico" datasets of (1) and take advantage of the fact that the ground truth is easily available. This motivated the work I published where I wanted to devise a principled method for finding validation metrics which are highly-correlated with the ground truth. If we could find such metrics, then we could use them in real world MBO pipelines where the ground truth isn't easily available.
+
+
+# and try to find validation metrics which are well correlated with them. These could potentially be useful in the real world when we're actually confronted with a real world ground truth.
+
+# In the work I published, I proposed that we find validation metrics which are well correlated with the ground truth, albeit under the situation where the generative model needs to extrapolate beyond its traing distribution. This is because in MBO we want to sample candidates which truly have a large reward $f(x)$, possibly larger than any reward seen in the training set. While the generative model should indeed be able to perform well in-distribution, we ultimately would like it to also perform well out-of-distribution.
+
+# (Relate this back to test score equation.)
+
+# I wanted to consider the exact case, but ask a fundamental question pertaining to model selection: what are some good validation metrics we can use? A validation metric here is simply what we use for model selection, some function which takes as input the generatve model, the validation set, and validation surrogate. I argued that a "good" validation metric is actually one which selects for a generative model which extrapolates well beyond the training distribution. This also requires us to modify the train/val/test split.
+
+# In summary:
+# - In a "traditional" ML training and evaluation pipeline -- one which consists of a training, validation, and test split -- the test data already contains labelled examples. This can be easily used to compute the likelihood (or some alternative to it) of the data with respect to the model parameters. **In other words, the generative model needs to explain the test data.**
+# - In offline MBO, the "test data" is not prescribed, it has to be generated from the generative model trained on the training set. In order to evaluate how good it is, the ground truth $f$ must be used to evaluate the likelihood of the model's samples, but $f$ is prohibitively expensive to compute. **In other words, the ground truth needs to explain the generative model data.**
+# - If the dataset is derived from a real world process (so $f$ characterises a real world process) then the best we can do is use an approximation $\ftest$, otherwise we can turn to simulation environments where $f$ is cheap to compute.
+# - Information can be exploited from these functions and used to inform the use of validation metric. Since the validation metric is used for model selection, this can select for models which perform well under that ground truth. These metrics can then be used in real world scenarios.
+# - Furthermore, I argue that the typical train/valid/test split breaks iid.
+
+# it would be impractical to invoke in the context of a train/val loop.
+# 
+
+# - If $f$ is real world then once we have trained a model, either execute its real world process (expensive, but exact) or use $\ftest$ for something cheaper (cheap, but approximate).
+# - If we are dealing with simulation environments then $f$ is cheap to compute, however it would still not be representative of real world MBO to use it for model selection. Instead, we should identify cheap-to-compute validation metrics which we could substitute in place of it.
+
+# that we use a train/valid/test setup in order to be principled about generalisation performance. In addition, I proposed that we find validation metrics (functions of $\pt$, $dvalid$, and $fvalid$) which correlate well with $f$.
+
+# Furthermore, assuming the existence of a ground truth model is the opposite of what typically happens in a typical machine learning pipeline. Usually, we already have a labelled test set on hand and we want to compute some metric which captures some ability of the model to explain the data. We could express this probabilistically as:
+
+# \begin{align}
+# \text{conditional log likelihood} = \frac{1}{n} \sum_{i=1}^{n} \log p_{\theta}(Y_i|X_i), \tag{2} 
+# \end{align}
+
+# which is computing how likely the ground truth reward $Y_i$ is given $X_i$, with respect to the generative model. Notice how this is tractable because the test set is finite and $\pt$ we already have on hand. Eqn. (1) in turn would be more akin to Eqn. (2) but with $\pt$ replaced with $p$:
+
+# \begin{align}
+# \frac{1}{n} \sum_{i=1}^{n} \log p(Y_i|X_i). \tag{3}
+# \end{align}
+
+# (which is usually based on the principle of maximum likelihood). For instance, traditionally we already have a labelled test set a-priori, and we want to measure the likelihood of the test data assuming the model parameters. One such example:
+# \begin{align}
+# \text{test log likelihood}(X|\theta) = \frac{1}{n} \sum_{i=1}^{n} \log p_{\theta}(X_i, Y_i), \tag{2} 
+# \end{align}
+
+# for some arbitrary generative model $\pt(x,y)$ of interest. Note that this equation /does not/ assume the probabilistic ground truth $p(x,y)$ or any other ground truth like $f$.
+
+# Conversely, in MBO the idea of a "test set" is less straightforward. Of course, the generative model /should/ generalise and assign high likelihood to a test set if we have one, but it is arguably an intermediate step for an end goal, which is actually using the generative model to /sample/ new inputs. However, if we sample new inputs we don't have their true labels, and it isn't feasible to take Eqn. (2) and swap out $\pt$ for $p$ (if we want likelihood) or $f$ (the actual reward).
+
+# which means we have to use something else in place of it. Hyperparameter tuning is /just as important/ as training and so we shouldn't dismiss it. We could set a-priori some validation metric -- one which is informed by both the class of generative model as well as the problem domain -- but in the paper published last year I thought more deeply about what an "ideal" validation metric might look like. We would like to have a validation metric which is "well correlated" with the test score, but in order to quantiatively determine how true that is then you would need the ground truth function, and if you have it then it negates the purpose behind a validation metric. (It's like trying to set aside a budget to buy a really nice car, but then someone just outright gifts you the car.) My paper looked at how we could break this circular logic, which is that we try to make use of datasets with simulators.
+
+* last year's work
+
+# want validation metric to be well correlated with f
+
+- Mention the related work section and how validation sets were used.
+
+- Another key thing is that we want models to extrapolate. How do we measure extrapolation?
+
+To recap, we are interested in training a generative model $\pt(x,y)$ from which we can produce samples. However, we are not as interested as generating "in distribution" (samples similar to what is in the training set) as we are "out of distribution", where the samples have larger reward than what is observed in-distribution. Formally spealking, we want to find a model $\theta$ such satisfies the following:
+
+\begin{align}
+\theta^{*} = \argmax_{\theta} \ m_{\text{test}}(\pt; f) = \argmax_{\theta} \ \mathbb{E}_{x \sim \pt(x,y)} f(x). \tag{3}
+\end{align}
+
+As previously mentioned, offline MBO does not allow (or /should not/ allow) access to the ground truth in both training and model selection. Because of this, we should resort to cheap-to-compute validation metrics. This can either be a relaxation of Eqn. (3) to use an approximate form of $f$ instead, or some appropriate proxy of it.
+
+In the earlier example we assumed a generative model of the form $\pt(x,y) = \pt(x|y)p(y)$ and gave an example of how we could generate high-reward candidates at inference time, simply by changing the prior distribution from prior $\ptrain(y)$ (whose empirical distribution is from the training set) and adopting $p_{\text{new}}(y)$, some new prior distribution which reflects a larger range of rewards we wish to generate from. If we define this prior such that it covers a larger range of $y$'s not seen by $\ptrain$, then we are essentially asking the model to condition on values it has /never/ seen before during training. Of course, it would not be clear at first whether it would be any good at this, but this is precisely the point of hyperparameter tuning and model selection.
+
+In order to measure whether it is doing a good job, I proposed that the distinction between a training and validation prior be reflected in the dataset splits, such that the validation set contains larger reward inputs than what is observed in the training set. Concretely, suppose that our offline dataset is $\mathcal{D}$, we could define some threshold $\gamma$ such that the training set $\dtrain$ is all samples whose $y$'s are less than $\gamma$ and validation set are all samples whose $y$ are greater than or equal to $\gamma$. Then a reasonable training-valid-test pipeline could be the following:
+
+- **Training**: train $\pt(x,y) = \pt(x|y)\ptrain(y)$ on $\dtrain$, where $\ptrain(y)$ is the empirical distribution over $y$'s for the training set.
+- **Validation**: Switch out $\ptrain(y)$ for $\pvalid(y)$, which defines a new generative model $\ptnew$. Use this in conjunction with a validation metric (some examples are given later).
+- **Test**: once the best $\ptnew$ is determined according to the validation metric, finally score the model on the real ground truth by invoking Eqn. (1).
+
+(Note that for **Test**, from the point of view of publishing machine learning papers we still may not even find it practical to evaluate $f$ at test if it characterises a real-world process. In that case we need a "test surrogate" model $\ftest$ which has been trained on the entire dataset.)
+
+This is illustrated in Figure 3.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-train-val-workflow.png" width="600" alt="" />
+</figure>
+<figcaption><b><i>Figure 3</i></b></figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+# training, validation, testing
+# but test could also be approximate since that involves a real process
+
+- =fannjiang2020autofocused=: offline MBO with a regression model and it is typically considered fixed. This proposes an online algorithm however (in an offline setting) where the training surrogate can correct itself iteratively. In terms of data splits, there is a training split (bottom 80th percentile) and a test split and the entire dataset is used to train a "ground truth" model $\ftest$. However, there is no mention of how model selection was done, so it is unclear whether a validation set was held out or whether it was done with respect to the test surrogate.
+
+this is actually online MBO but it uses an approximate reward function. There does not appear to be a mention of a separate training and testing surrogate however.
+- TODO:
+
+This type of training and validation split, as well as constantly stressing the importance of a validation set to begin with, essentially encompasses my paper. 
+
+This style of evaluation undoubtedly caused some pains in the writing of the paper as well as interpreting the empirical results against that of Design-Bench, an excellent MBO benchmarking framework (and also a paper [cite:@trabucco2022designbench]) which was designed to facilitate offline MBO experiments by providing access to datasets, methods, and helper functions. In the context of Design-Bench, datasets contain a default threshold value $\gamma$ such that all examples in the full set whose $y$ is less than $\gamma$ are assigned to the training set. This is visualised in Fig. 1 (left) as $\dtrain$(the blue bars here simply illustrate a hypothetical empirical distribution over $y$). Since Design Bench's prescribed train/eval setup doesn't permit us to use the full dataset $\ds$, the user is only meant to use $\dtrain$ for training and hyperparameter tuning (model selection). Furthermore, the lack of a prescribed validation set is concerning -- while the user /could/ subsample a held-out validation set from the training set, it wouldn't satisfy our need to ensure the validation set is out of distribution (remember, we want to measure extrapolation). Furthermore, it reduces the size of the training set which would hurt performance.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/split1.png" width="300" alt="" /> &nbsp; &nbsp; <img class="figg" src="/assets/mbo/split2.png" width="300" alt="" /> 
+</figure>
+<figcaption><b><i>Figure 1: (left): Design-Bench's prescribed training setup only permits access to the training set; (right) in order for us to perform model selection (and measure extrapolation), I proposed setting aside a validation set which is not from the same distribution as train.</i></b></figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+In order to resolve this issue, my proposed style of evaluation involves extracting out the full dataset and subtracting the training set in order to obtain the validation set.
+
+** validation metrics for extrapolation
+
+One validation metric which is particularly intuitive here is the "agreement" [cite:@mins], which measures the extent to which the validation surrogate agrees with the supposed label of the input generated by the model:
+
+$$m_{\text{agreement}}(\pt; \fvalid) = \mathbb{E}_{p_{\text{valid}}(y), \tilde{x} \sim \pt(x|y)} (y - \fvalid(\tilde{x}))^2. \tag{4}$$ 
+
+Here we are sampling $y$'s from the validation distribution and those values have not been seen by the generative model during training. When we generate inputs conditioned on such values, we want to measure to what extent the validation surrogate agrees that it is indeed the correct label.
+
+# https://chatgpt.com/c/67a77ee2-5fbc-8008-b434-62a547cfed98
+
+Let's now briefly introduce the other validation metrics. To make things more flexible, I also extend the definition of a metric to also be able to condition on a /dataset/. This opens up the possibility of using evaluation metrics which compare distributions of data [CITE], and by extension we can also leverage these to measure extrapolation if we allow the validation set to also be conditioned on.
+
+Other validation metrics were:
+- $m_{\text{test}}$ (Eqn. 3) but computed with respect to the validation surrogate $\fvalid$;
+- Frechet Distance ([cite:@dowson1982frechet; @ttur]) between the distribution of generative model samples and the validation set;
+- the denoising score matching loss function [cite:@ho2020denoising] (but evaluated on the validation set);
+- a precision and recall metric proposed in [cite:@kynkaanniemi2019improved].
+
+**Now let us go back to the first question:** how do we use $f$ to rank validation metrics? In this work I specifically chose to experiment with the denoising diffusion model (DDPM) from [cite:@ho2020denoising] due to its flexibility and state-of-the-art results in generative modelling. I trained many variants of a base DDPM architecture with each model differing in terms of hyperparameters: for instance network width, label dropout probability, label guidance strength, and so forth. Each model (i.e. each instantiation of hyperparameters) is trained and periodically evaluated on the five validation metrics, and the best checkpoint found with respect to each validation metric is retained (i.e. we perform early stopping).
+
+For each dataset and each validation metric, this gives us a set of model weights we can explore. For each of these models we plot the corresponding validation metric value (as determined by early stopping) versus the test reward. We plot these and also compute the Pearson correlation. The result of this is shown below in  Figure X.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-scatterplot-figures.png" width="700" alt="" />
+</figure>
+<figcaption><b><i>Figure 4</i></b></figcaption>
+<br />
+</div>
+#+END_EXPORT
+
+
+
+
+
+Perform a large scale study, I ran a lot of experiments plotting each proposed validation metric against the test score against a range of hyperparameters for diffusion generative models, and computed their Pearson correlation. There is no clear cut answer to the validation metric problem since some perform wildly different across datasets. At least when the best metrics are tabulated the agreement metric seems reasonable. However, my study is limited by a few things: 
+- I only test diffusion models (they are current SOTA, perform well, and are flexible via modification of the score function);
+- I only test continuous datasets -- Design Bench-based papers typically test 8, where half are continuous and half are discrete. I chose not to do discrete since I was using a Gaussian-based diffusion model. In retrospect, I could have performed diffusion in latent space (CITE LATENT DM) with autoencoders.
+- 3/4 of the datasets are robotics and 1/4 is superconductor, and this doesn't reflect the range of problems encountered in the real world.
+
+The main figure of the paper is shown below. Essentially, each row is a dataset (Ant Morphology, Kitty, Superconductor, and Hopper) and each column is a validation metric. Individual points all represent different models, and the colour-coding refers to the classifier guidance parameter (which is important to control the trade-off between cond and uncond generation).
+
+
+When I last presented these results to someone, their response seemed dismissive, likely because they didn’t provide a definitive validation metric that performed well across datasets. Unfortunately, that’s the nature of ML research -- not every paper offers a clear-cut solution to a pressing and complicated problem. I also take care to present results honestly rather than overstating their significance. My work never claimed to have presented a validation metric to "rule them all", and apart from some qualms I have about the length and verboseness of the paper I believe I contributed an interesting discussion about model validation and extrapolation in the context of offline MBO.
+
+** online mbo
+
+# Ok, so if we assume access to $f$ for simulation datasets:
+
+# - **Question 1:** How can we measure extrapolation?
+# - **Question 2:** How can we use the ground truth reward model $f$ to inform our choice of (or rank) a validation metric?
+
+# Q1: split the training and validation set so they're not from the same distribution
+# footnote: the different ways we can split this
+# Q2: 
+
+# First, let us use notation more consistent with generative models and denote $\pt(x|y)$ to be a conditional generative model from which we can produce samples, which we can write as $x \sim \pt(x|y)$. Before, we were using $\ft(x)$ to denote a regression model which directly outputs the predicted reward $\hat{y} = \ft(x)$, but also somehow could be exploited to prodo
+
+\begin{align}
+\tilde{x} & = \argmax_{x} \ \text{EI}(x; \ftrain) \\
+& = \argmax_{x} \ \mathbb{E}_{\ftrain(x)}\big[ \max(\ftrain(x) - f^{*} - \epsilon, 0)\big],
+\end{align}
+
+where $f^{*}$ is the best candidate found so far and $\epsilon$ is a small exploration parameter. In practice we can approximate the argmax by simply running gradient ascent. That is, we first sample $x$ from some prior distribution and perform the following iterative update:
+
+\begin{align}
+x_0 & \sim p(x) \\
+x_t & := x_{t-1} + \eta \nabla_{x} \text{EI}(x) \ \text{for } t=1, \dots, T
+\end{align}
+
+and $x_T$ is the final sample. One way we could incorporate the offline part of MBO into this algorithm is to leverage the generative model as the prior distribution to sample an $x$ conditioned on $y$, then we refine it further by performing gradient ascent on expected improvement:
+
+\begin{align}
+x_0 & \sim \pt(x|y_0) \\
+x_t & := x_{t-1} + \eta \nabla_{x} \text{EI}_{\theta}(x) \ \text{for } t=1, \dots, M
+\end{align}
+
+and $y_0$ is in turn sampled from $p(y)$. Lastly, in order to not rely on a ground truth reward model, we simply replace it with the /validation surrogate/ $f_{\phi}$. Therefore, our new algorithm is the following:
+
+- (1) Train the surrogate $\ft$ on our offline dataset.
+- (2) Repeat until budget is exhausted:
+  - (2a) Sample an initial candidate from the prior distribution $x_0 \sim \pt(x|y)$.
+  - (2b) Use the acquisition function $\alpha_{\theta}(x)$ to refine $x_0$.
+  - (2c) Evaluate $y = \fphi(\tilde{x})$ and incrementally update the surrogate with new data pair $(\tilde{x}, y)$.
+  - (2d) Save the pair $(\tilde{x}, y)$.
+
+
+
+# Here, let's assume the acquisition function conditions on both the validation oracle $\fp$ /and/ the generative model $\pt(x|y)$. If we assume we can take gradients, we can search for the next best candidate $\tilde{x}$ via:
+# \begin{align}
+# \tilde{x} = \argmax_{x} \ \alpha_{\theta, \phi}(x)
+# \end{align}
+
+
+# It is important to emphasise "until budget is exhausted", since the entire field of MBO hinges on being able to use data efficiently to minimise the number of evaluations of $f$.
+
+
+
+
+It never dawned on me that we could easily produce a variant of the proposed workflow in Fig. 2 by simply defining a validation metric like Eqn. 1 but with some sort of discount factor -- just like in RL -- which penalises successive evaluations of $f$. The idea is that the equation should favour the algorithm which produces better scoring candidates with as few evaluations of $f$ as possible, under the constraint that the maximum number of evaluations it can perform is $N$.
+
+This is the mean reward from Eqn. 1, assuming $\{x_i\}_{i=1}^{N}$ are coming from our generative model:
+
+$$ \text{test score} = \frac{1}{n} \sum_{i=1}^{n} f(x_i), \tag{3} $$
+
+But given a discount factor $\gamma \in (0,1]$ we now define it as:
+
+$$ \text{discounted test score} = \frac{1}{n} \sum_{i=1}^{n} \gamma^{i-1} f(x_i). \tag{4} $$
+
+# - Pre-trained Gaussian processes for Bayesian optimization Zi Wang, George E. Dahl, Kevin Swersky, Chansoo Lee, Zachary Nado, Justin Gilmer, Jasper Snoek, Zoubin Ghahramani
+# - Towards Learning Universal Hyperparameter Optimizers with Transformers Yutian Chen, Xingyou Song, Chansoo Lee, Zi Wang, Qiuyi Zhang, David Dohan, Kazuya Kawakami, Greg Kochanski, Arnaud Doucet, Marc'aurelio Ranzato, Sagi Perel, Nando de Freitas
+# - Few-Shot Bayesian Optimization with Deep Kernel Surrogates Martin Wistuba, Josif Grabocka
+
+
+# Last year I published some work to TMLR where I tried to pose a fundamental question in the offline setting: if we don't have access to $f$, how can we select for models which perform well? And what does it mean for a model to perform well? To answer the first question, 
+
+
+# select for models which can perform well = extrapolate
+# how can we measure extrapolation if we don't have f?
+
+We just explained what it means for a model to perform well, it needs to extrapolate.
+
+How can we measure how well it extrapolates then? This is the fundamental issue that the paper tries to address. I framed this as a model selection problem, which is using a validation metric (computed on a validation set) and using that to guide hp tuning. The hope is that a good set of hps will bring about extrapolation. I posed this as finding a valid metric which is highly correlated with the ground truth -- that is,
+
+
+
+
+ One such example in the generative modelling literature is the Frechet distance:
+
+$$ \text{FD} = \text{KL}\big( \text{embeddings of my samples}, \text{embeddings of the validation set samples} \big)$$
+
+if we assume that both embeddings come from multivariate and full covariance Gaussian distributions. In its simplest form, the metric could simply be the surrogate model $\ft$ and we just use it to compute (in expectation) the MSE between $x \sim p(x|y)$  and measure the distance $(y - \ft(x))^2$. More formally:
+
+* References
+
+#+print_bibliography:
