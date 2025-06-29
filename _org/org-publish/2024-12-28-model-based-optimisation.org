@@ -213,10 +213,10 @@ Due to the different types of rewards oracles mentioned, below is a table explai
 
 | name                                 | what is it                                                                                                              |
 |--------------------------------------+-------------------------------------------------------------------------------------------------------------------------|
-| reward oracle                        | $f(x)$: real world process, extremely expensive to compute, or a simulator, which is relatively cheap                   |
-| "proxy" oracle                       | -  $\ft$: model based on training set, samples are created with this model, also called a "surrogate" (I prefer to use $\pt(x \vert y)$ here) |
-|                                      | - $\fvalid$ : proxy oracle trained on train set + valid test. Here we will call it the **validation proxy**            |
-|                                      | - $\ftest$ : proxy oracle trained on train + valid + test set (all of the data), exists when reward or simulated oracle do not exist. Here we will call it the **test proxy**  |
+| reward oracle                        | $f(x)$: real world reward model, extremely expensive to compute. This may also refer to a simulation environment's reward model.                                |
+| "proxy" oracle                       | -  $\ft$: a regression model trained on the training set. While it is a discriminative model, it can be "hacked" to act as a generative model. In this article, I prefer to use generative modelling terminology, and therefore the /conditional/ density $\pt(x  \vert y)$ will usually be referred to, instead of this.           |
+|                                      | - $\fvalid$ : typically not defined in literature, but this is specifically a proxy oracle intended for model selection and hyperparameter tuning. It is trained on the combined training and validation set. Here we will call it the **validation proxy**.                  |
+|                                      | - $\ftest$ : proxy oracle trained on train + valid + test set (all of the data). This typically exists in "academic MBO" where the ground truth is also too impractical to compute at test time. Here we will call it the **test proxy**. |
 
 TODO write about sim2real
 
@@ -231,13 +231,13 @@ TODO write about sim2real
 :CUSTOM_ID: sec:intro_summary
 :END:
 
-As discussed in Sec. [[#sec:intro_extrapolate]], we need to measure not just generalisation, but extrapolation. If our validation set follows the proposed setup in Fig. (1), then we can just approximate Eqn. (1) by introducing some approximate reward model $\tilde{f}$, and use $\fvalid$ in place of $\tilde{f}$:
+As discussed in Sec. [[#sec:intro_extrapolate]], we need to measure not just generalisation, but extrapolation. If our validation set follows the proposed setup in Fig. (1), then we can just approximate Eqn. (1) by introducing some approximate reward model $\tilde{f}$:
 
 \begin{align}
 m_{\text{reward}}(\tilde{p}; \tilde{f}) &= \mathbb{E}_{x \sim \tilde{p}(x,y)} \tilde{f}(x). \tag{2}
 \end{align}
 
-and then $m_{\text{reward}}(\widehat{p_{\theta}}; \fvalid)$ now constitutes our first validation metric. By "validation metric" I simply mean some function which measures the "goodness" of the generative model $\pt$ using either the validation set, its corresponding reward oracle, or both. (We will discuss some other ones later.)
+From this, the function $m_{\text{reward}}(\widehat{p_{\theta}}; \fvalid)$ now constitutes our first validation metric. By "validation metric" we simply mean some function which measures the ability of the model to extrapolate. More generally, it may not only be a function of an approximate oracle $\tilde{f}$, but also other things such as the validation itself. (We will discuss some other ones later.)
 
 <<ref-fvalid-concern>> Note that while Eqn. (2) is a principled and reasonable approach to determining how well $\pt(x|y)$ extrapolates, this is just one possible validation metric of many. On one hand, it is quite interpretable: assuming a fixed $\fvalid$, Eqn. (2) is maximised when samples produced from $x \sim \pt(x|y), y \sim \pvalid(y)$ produce the largest average reward. On the other hand, $\fvalid$ is an approximate model and shares the same vulnerabilities to adversarial examples and overconfidence as many other regression model. Therefore, validation metrics go beyond just simply directly approximating Eqn. (1), and may involve measuring other aspects of the generative model or data.
 
@@ -245,13 +245,13 @@ and then $m_{\text{reward}}(\widehat{p_{\theta}}; \fvalid)$ now constitutes our 
 
 So far we have discussed the need to measure extrapolation (Sec [[#sec:intro_extrapolate]]), as well as the lack of a validation set which is crucial to measuring it (Sec [[#sec:intro_evaldifficult]]). From this we can motivate a very principled and reasonable train-validate-test recipe, which is the following:
 
-- *Inputs*: From the entire dataset $\mathcal{D}$, split them into: $\dtrain$, $\dvalid$, and $\dtest$. Also ensure that the valid and test sets contain higher reward inputs, as per Sec. [[#sec:intro_extrapolate]].
+- *Inputs*: Split total dataset $\mathcal{D}$ into: $\dtrain$, $\dvalid$, and $\dtest$. (Ensure that the valid and test sets contain higher reward inputs, as per Sec. [[#sec:intro_extrapolate]].)
 - *Training*: Train the generative model $\pt(x|y)$ on $\dtrain$. Also, if the validation metric necessitates it, train a /validation proxy/ $\fvalid$ on $\dtrain \cup \dvalid$.
 - *Validation*: Use $\dvalid$ and/or $\fvalid$ for model selection / hyperparameter tuning.
 - *Final evaluation*: assuming we already have a recipe for generating high scoring samples from the model, score those samples with either the reward oracle (if we operate in "real world MBO"), or test proxy (if we operate in "academic MBO").
   - If we need the test proxy, train a $\ftest$ on $\mathcal{D}$, and measure the average reward via $m_{\text{reward}}(\widehat{p_{\theta}}; \ftest)$.
 
-*Finally*: note that for the "real world MBO" step in "final evaluation", since you'll be sending off samples to the real world, it is much more data efficient to first re-train the best model on the entire dataset $\mathcal{D}$ using the same hyperparameter configuration, and then use that to generate samples.
+*Finally*: note that for the "real world MBO" step in "final evaluation", since we'll be sending off samples to the real world, it is much more data efficient to first re-train the best model on the entire dataset $\mathcal{D}$ using the same hyperparameter configuration, and then use that to generate samples.
 
 In the absence of a reward oracle which can be judiciously evaluated, we need to turn to cheap-to-compute validation metrics. How can we find these to help us search for good models?
 
@@ -287,21 +287,21 @@ While (2) is most representative of a real world MBO problem, we can exploit the
 Let us begin with a summary of everything so far:
 
 - (1) In offline model-based optimisation we wish to learn a reward-conditioned generative model from an offline dataset of input-reward pairs. The rewards are originally obtained from a ground truth reward "oracle", which is assumed to be too expensive to query during training or validation of the generative model.
-- (2) Evaluating samples from a generative model is a /difficult/ task. Firstly, likelihood-based evaluation is not sufficient to evaluate the quality of outputs. Secondly, samples ideally need to be evaluated by human feedback, and is neatly capturable by the notion of a reward oracle. Lastly, models trained need to /extrapolate/ beyond the rewards they were trained on, as the better they can extrapolate, the more impactful they will be in the real-world.
+- (2) Evaluating samples from a generative model is a /difficult/ task. Firstly, likelihood-based evaluation is not sufficient to evaluate the quality of outputs. Secondly, samples ideally need to be evaluated by human feedback (which is perfectly encapsulated by the notion of a reward oracle). Lastly, models trained need to /extrapolate/ beyond the rewards they were trained on, as the better they can extrapolate, the more impactful they will be in the real-world.
 - (3) Evaluation is difficult, often neglecting a validation set. This may be related to the confusion between "real world" and "academic" MBO. In "academic MBO", the reward oracle is replaced with a test proxy or simulator. While these are technically useful and cheap-to-compute, non-sparing use of these fundamentally violate the /spirit/ of offline MBO, whose emphasis is on trying to extract as much value as possible from the available data without resorting to expensive reward oracle queries.
-- (4) In the absence of a reward oracle which can be judiciously evaluated, we need to turn to validation metrics, which are assumed to be cheap to compute. How can we use such metrics to help us build better generative models?
+- (4) In the absence of a reward oracle which can be judiciously evaluated, we need to turn to validation metrics, which are assumed to be cheap to compute. ~How can we use such metrics to help us build better generative models?~ Given a list of metrics a-priori, how do we find which ones are the best?
 
 The work I published last year addresses these bullet points of Sec. [[#sec:intro_summary]]. 
 # Firstly, we want our models to /extrapolate/. Secondly, evaluation doesn't follow rigorous practice and seems to conflate real world and academic MBO. I proposed a way to address both of these issues at once, which is simply to use a validation set (as well as a validation proxy), and also to ensure the validation set contains a larger range of rewards than that of the training set.
 
-To implement the train-valid-test protocol described in X, some technical considerations were needed. Experiments were implemented with /Design Bench/, a popular MBO benchmarking framework [cite:@trabucco2022designbench]. Design Bench imposes a reward threshold $\gamma$ which dictates which samples are assigned to the training set. For example, any samples whose $y \leq \gamma$ are assigned to the training set, otherwise they are hidden from the user. Because of this, all of the remaining samples $\gt \gamma$ are not assigned to a validation set -- in fact, the library does not prescribe one at all. Two possible solutions are:
+To implement the train-valid-test protocol described, some technical considerations were needed. Experiments were implemented with /Design Bench/, a popular MBO benchmarking framework [cite:@trabucco2022designbench]. Design Bench imposes a reward threshold $\gamma$ which dictates which samples are assigned to the training set. For example, any samples whose $y \leq \gamma$ are assigned to the training set, and the rest is obscured from the user (in an API-like sense). Because of this, all of the remaining samples $\gt \gamma$ are not assigned to a validation set -- in fact, the library does not prescribe one at all. Two possible solutions are:
 
-- (1) Simply hold out some small part of the training set as the validation set. This respects the intended design of the library, but effectively reduces the size of the training set and may make it difficult for trained models to be competitive with the literature. (In Fig. 1 left, $\dtrain$ is shown here, so imagine cutting out some portion of this as the validation set.)
+- (1) Simply hold out some small part of the training set as the validation set. This respects the intended design of the library, but effectively reduces the size of the training set and therefore handicap model performance compared to other Design Bench-based models which use the full training set. (In Fig. 1 left, $\dtrain$ is shown here, so imagine cutting out some portion of this as the validation set.)
 - (2) Define that all samples whose $y \gt \gamma$ belong to the validation set (Fig. 1, right). Since the validation proxy $\fvalid$ is always trained on the combined train+valid split, this means it is trained on the full dataset. This technique does not respect the intended design of the library, even if its motivation is quite principled.
 
 # Since that can be a bit difficult to visualise, it is illustrated in Fig. (3).
 
-I ended up choosing (2). However, this requires some nuance when it comes to interpreting the relationship between the validation proxy $\fvalid$ and the test oracle $\ftest$. If the dataset defines $\ftest$ as a simulator, then we can train $\fvalid$ on the full dataset as the simulator can be treated as the ground truth from which the dataset's samples were drawn from.
+I chose (2), which is illustrated in Fig. (3)-right. However, this requires some nuance when it comes to interpreting the relationship between the validation proxy $\fvalid$ and the test oracle $\ftest$. If the dataset is based on a simulator, then we already have "$f$" and we can train $\fvalid$ on the full dataset as the simulator can be treated as the ground truth from which the dataset's samples were drawn from.
 
 #+BEGIN_EXPORT html
 <div id="images">
@@ -315,7 +315,7 @@ I ended up choosing (2). However, this requires some nuance when it comes to int
 #+END_EXPORT
 
 
-Otherwise, if $\ftest$ is actually an approximate test oracle, then by Design Bench's definition it has been trained on the full dataset. This means training a validation proxy would in turn involve training on all of the data and therefore be equivalent to a test oracle, and the latter needs to have seen more data to be a useful tool to measure generalisation at the very end. Therefore, we let the test surrogate remain as the "gold standard" which has been trained on all of the data, and we only allow the validation proxy to be trained on a subset of the full dataset. Concretely, this would be the training set, plus a 50% subsample of any examples whose reward exceeds $\gamma$.
+Otherwise, if $\ftest$ is actually an approximate test oracle, then by Design Bench's definition it has been trained on the full dataset. This means training a validation proxy would in turn involve training on all of the data and therefore be equivalent to a test oracle, and the latter needs to have seen more data to be a useful tool to measure generalisation once training and validation is completed. Therefore, in this situation, we let the test surrogate remain as the "gold standard" which has been trained on all of the data, and we only allow the validation proxy to be trained on a subset of the full dataset. Concretely, this would be the training set, plus a 50% subsample of any examples whose reward exceeds $\gamma$. This is shown below in Fig. (4).
 
 #+BEGIN_EXPORT html
 <div id="images">
@@ -330,23 +330,27 @@ Otherwise, if $\ftest$ is actually an approximate test oracle, then by Design Be
 
 # In my work I decided with (2). We now finally have a validation set! The only thing that is left is to define the validation metrics. From this, a reasonable train/val/test pipeline would be:
 
+
+#+BEGIN_COMMENT
 - **Training**: train $\pt(x,y) = \pt(x|y)\ptrain(y)$ on $\dtrain$, where $\ptrain(y)$ is the empirical distribution over $y$'s for the training set.
 - <<ref-bullet-validation>> **Validation**: Switch out $\ptrain(y)$ for $\pvalid(y)$, which defines a new generative model $\ptnew(x,y)$. Use this in conjunction with a validation metric. We will define a few of these later, but we may also assume that any of these metrics may /also/ be a function of a validation proxy.
 - **Test**: once the best $\ptnew$ is determined according to the validation metric, finally score the model on the real ground truth by invoking Eqn. (1). For "real world MBO", this is the ground truth $f(x)$, for "academic MBO" this is the "test surrogate", $\ftest(x)$.
+#+END_COMMENT
 
 ** ranking validation metrics
   :PROPERTIES:
   :CUSTOM_ID: sec:last_year_valid_metrics
   :END:
 
-Now, all that is left is a validation metric. All I mean by this is something we can use to measure how well the generative model performs. This metric is a function of the generative model $\pt$, and may also be a function of the validation proxy $\fvalid$ and validation set $\dvalid$.  We already saw one of these metrics, which is simply Eqn. (1) but with $\fvalid$ substituted for $f$:
+Now, all that is left is a validation metric. This metric is a function of the generative model $\pt$, and may also be a function of the validation proxy $\fvalid$ and validation set $\dvalid$. (To keep notation light, we will assume that the metric $m$ can take arbitrary number of arguments, even though so far we see it as a function of the first two.)
+
+We already saw one of these metrics, which is simply Eqn. (2) but with $\fvalid$ substituted for $\tilde{f}$, which is just $m_{\text{reward}}(\tilde{p}; \fvalid)$:
 
 \begin{align}
-m_{\text{test}}(p; f)_{|f = \fvalid, p=\ptnew} & = \mathbb{E}_{x \sim  \ptnew(x,y)} \fvalid(x) \tag{3} \\
-&= m_{\text{reward}}(p; \fvalid),
+m_{\text{reward}}(\ptnew, \fvalid) & = \mathbb{E}_{x \sim  \ptnew(x,y)} \fvalid(x) \tag{3}.
 \end{align}
 
-and this is a function of just the generative model, the validation proxy, and also /part/ of the validation set (the empirical distribution over $y$). This metric doesn't particularly care about how "calibrated" the model is. For instance, if we condition on $y = 50$ and get an example whose reward according to $\fvalid$ is $1000$, the model doesn't get penalised for it. The only thing that matters is that the samples from $\ptnew$ score as high as possible on average. Otherwise, if this is this is concerning, another validation metric is the "agreement" [cite:@mins], which measures the extent to which the validation proxy agrees with the supposed label of the input generated by the model:
+and this is a function of just the generative model, the validation proxy. This metric doesn't particularly care about how "calibrated" the model is. For instance, if we condition on $y = 50$ and get an example whose reward according to $\fvalid$ is $1000$, the model doesn't get penalised for it. The only thing that matters is that the samples from $\ptnew$ score as high as possible on average. Otherwise, if this is this is concerning, another validation metric is the "agreement" [cite:@mins], which measures the extent to which the validation proxy agrees with the supposed label of the input generated by the model:
 
 $$m_{\text{agreement}}(p; f)_{|f=\fvalid,p=\ptnew} = \mathbb{E}_{x \sim \ptnew(x,y)} (y - \fvalid(x))^2. \tag{4}$$ 
 
@@ -361,13 +365,17 @@ Other validation metrics I defined were:
 - $\mathcal{M}_{\text{FD}}$: Frechet Distance (/FD/) ([cite:@dowson1982frechet; @ttur]) between the distribution of samples coming from $\ptnew$  and the validation set. Note that this is /not/ the same as Frechet /Inception/ Distance (/FID/), which uses the ImageNet-pretrained Inception network as a feature extractor. Here, we can define the feature extractor as being some suitable bottleneck in $\fvalid$.
 - $\mathcal{M}_{\text{DC}}$: The "density and coverage" metric proposed in [cite:@kynkaanniemi2019improved], which is an improved version of the precision and recall metric originally proposed in [cite:@sajjadi2018assessing]. This metric was originally motivated to tease out two important factors which determine how close two distributions are: sample quality and mode coverage, which can be thought of as precision and recall, respectively. While these terms can be individually computed, here I simply sum both terms, simply treating it as an alternative metric which can be compared to FD.
 - $\mathcal{M}_{\text{C-DSM}}$: The conditional denoising diffusion loss [cite:@ho2020denoising] but evaluated on the validation set. Essentially, we are asking how well the model can denoise high scoring samples that it has never seen before. Since DDPMs are /likelihood-based/ models, this is also a likelihood-based loss and therefore may not correlate well with sample quality. However, it is trivial to incorporate as a validation metric since it is already defined as a training loss.
-- $\mathcal{M}_{\text{reward}}$, this is just Eqn. (1) and we use $\ftest$.
 
-Going back to the purpose of this work, we ask: what validation metrics work best, and how do we measure it? Ideally, evaluating validation metrics requires access to the oracle, as we need to measure them up against some gold standard. That’s where simulation environments become interesting: they give us access to a something which very closely mimics a real world oracle, letting us test how well different validation metrics correlate with the actual ground truth. The idea is to use this setup to run a large-scale comparison of metrics across many simulated datasets, so we can better understand which validation metrics are most trustworthy when we don’t have access to the ground truth. Ideally, this gives us actionable guidance for real-world MBO deployments.
+Going back to the purpose of this work, we ask: what validation metrics work best, and how do we measure it? Ideally, evaluating validation metrics requires access to the reward oracle, as we need to measure them up against some gold standard. That’s where simulation environments become interesting: they give us access to a something which very closely mimics a real world oracle, letting us test how well different validation metrics correlate with the actual ground truth. The idea is to use this setup to run a large-scale comparison of metrics across many simulated datasets, so we can better understand which validation metrics are most trustworthy when we don’t have access to the ground truth. Ideally, this gives us actionable guidance for real-world MBO deployments.
 
-So how do we use the ground-truth function $f$ to evaluate validation metrics? In this work, I used /denoising diffusion probabilistic models/ (DDPMs) [cite:@ho2020denoising], due to their flexibility and strong performance in generative modeling. Using a fixed DDPM architecture, I varied several hyperparameters, such as network width, reward dropout probability[fn:ddpm], and reward guidance strength. Each unique hyperparameter setting defines a /configuration/, and for each configuration, a model was trained via early stopping on a validation metric. (So roughly a total of $N_{\text{hyperparams}} \times N_{\text{datasets}} \times N_{\text{metrics}}$ models.) 
+To measure how good a validation metric is, we conduct a large-scale study where we train /many/ model configurations, log the value of that metric, and see how all of those values correlate to their corresponding test reward (Eqn. (1)). Therefore, for each validation metric one can imagine many points where the x-axis denotes its validation metric value and the y axis its true reward computed via Eqn. (1) and with respect to the "extrapolated" model $\ptnew(x,y)$.
 
-From each of those configurations' checkpoints, samples were produced via $\ptnew(x,y)$, and the reward oracle was used to predict the mean reward. This mean reward was plotted against the validation metric. This means that for each validation metric $\mathcal{M}_j$, we obtain a scatterplot of the mean reward $\mathcal{M}_{\text{reward}}$ versus $\mathcal{M}_j$, and from this the Pearson correlation can be computed.
+
+Concretely, this was done with /denoising diffusion probabilistic models/ (DDPMs) [cite:@ho2020denoising], due to their flexibility and strong performance in generative modeling. Using a fixed DDPM architecture backbone, I varied several hyperparameters such as network width, reward dropout probability[fn:ddpm], and reward guidance strength. Each unique hyperparameter setting defines a /configuration/.
+
+# (So roughly a total of $N_{\text{hyperparams}} \times N_{\text{datasets}} \times N_{\text{metrics}}$ models.) 
+
+# From each of those configurations' checkpoints, samples were produced via $\ptnew(x,y)$, and the reward oracle was used to predict the mean reward. This mean reward was plotted against the validation metric. This means that for each validation metric $\mathcal{M}_j$, we obtain a scatterplot of the mean reward $\mathcal{M}_{\text{reward}}$ versus $\mathcal{M}_j$, and from this the Pearson correlation can be computed.
 
 
 [fn:ddpm] Conditional diffusion models are typically trained with dropout on the conditioning variable $y$ (in our case, the reward). This makes them act as both unconditional and conditional models.
@@ -384,7 +392,7 @@ These results are illustrated below for Design-Bench’s continuously-valued dat
 <figure>
 <img class="figg" src="/assets/mbo/mbo-scatterplot-figures.png" width="700" alt="" />
 </figure>
-<figcaption><b>Figure 5.</b> Each dataset is a subfigure, and each column is a validation metric. Each metric is plotted against <i>M_reward</i> (shown here as <i>M_test_reward</i>), and points are colour-coded according to a diffusion-model specific generation parameter called label guidance (which can be safely ignored for this figure). The Pearson correlation ρ is shown above each plot. Since each validation metric in this figure is designed to be minimised (negative values are added to metrics which typically are maximised), we are interested in metrics which give rise to the most negative values of ρ.</figcaption>
+<figcaption><b>Figure 5.</b> Each dataset is a subfigure, and each column is a validation metric. Each metric is plotted against <i>M_reward</i> (shown here as <i>M_test_reward</i>), and points are colour-coded according to a diffusion-model specific generation parameter called label guidance (which can be safely ignored for this figure). The Pearson correlation ρ is shown above each plot. Since each validation metric in this figure is designed to be minimised (negative values are added to metrics which typically are maximised), we are interested in metrics which are most negatively correlated, i.e. ones which give rise to the most negative values of ρ.</figcaption>
 <br />
 </div>
 #+END_EXPORT
@@ -399,13 +407,14 @@ Since the above plots are a lot of information to process, we can just jump stra
 <figure>
 <img class="figg" src="/assets/mbo/mbo-barplot.png" width="700" alt="" />
 </figure>
+<figcaption><b>Figure 6.</b></figcaption>
 <br />
 </div>
 #+END_EXPORT
 
-/(For those inclined: the difference between "c.f.g" and "c.g." simply refer to classifier-free and classifier-based guidance, as these are two ways to formulate conditional DDPMs. I wanted to explore both formulations for the four datasets.)/
+# /(For those inclined: the difference between "c.f.g" and "c.g." simply refer to classifier-free and classifier-based guidance, as these are two ways to formulate conditional DDPMs. I wanted to explore both formulations for the four datasets.)/
 
-The above figure differs a little from the one before it, as we actually have three additional groups of experiments on the right corresponding to "c.g." in parentheses. These correspond to the "classifier guidance" variant of diffusion [cite:@dhariwal2021diffusion]. I won't go into details here, but you can think of this variant as really defining the joint $\pt(x,y) \propto p_{\beta}(y|x)^{w}\pt(x)$ where $p_{\beta}(y|x)$ is actually the /training/ surrogate (the reward model trained only on the training set), whereas the other variant (referred to in the scatterplot as "classifier-free guidance", or "c.f.g.") does not use an external model for the $p(y|x)$ part.
+The above figure differs a little from the one before it, as we actually have three additional groups of experiments on the right corresponding to "c.g." in parentheses. These correspond to the "classifier guidance" variant of diffusion [cite:@dhariwal2021diffusion]. I won't go into details here, but you can think of this variant as really defining a special joint distribution $\pt(x,y) \propto p_{\beta}(y|x)^{w}\pt(x)$ where $p_{\beta}(y|x)$ is a regression model also trained on the training data. (So it's like a probabilistic form of "$\ft$", only that here we use subscript $\beta$ as $\theta$ is already assigned to the generative model.) Conversely, "c.f.g." [cite:@classifierfree] can simply be thought of as just $\pt(x,y) = \pt(x|y)p(y)$ but where the conditioning on $y$ can be increased to have a stronger effect on generated samples. 
 
 Overall, if we count which validation metric was most negatively correlated with the test reward for each dataset-guidance configuration, agreement is the most performant, followed by Frechet Distance.
 
@@ -414,6 +423,17 @@ Overall, if we count which validation metric was most negatively correlated with
 In the name of transparency and introspection, I will discuss what I think could have been done better.
 
 The fundamental question we are trying to answer is: what validation metrics are most useful? To do this, we proposed some reasonable metrics a-priori, and ranked which ones were most correlated with the actual ground truth on four datasets. While this work isn’t about setting new benchmark records, the results are very encouraging. That said, it’s worth noting that this correlation is measured on the same data used to select the best metric, so there’s an inherent optimism bias. The ideal thing to do would have been to demonstrate that these metrics perform well on other downstream tasks.
+
+#+BEGIN_EXPORT html
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-results-table.png" width="700" alt="" />
+</figure>
+<figcaption><b>Figure 7.</b> The c.f.g. and c.g. variants of our diffusion are shown in the bottom two rows. The numbers denote the normalised mean performance of samples with respect to the full dataset, which means values greater than 1 indicate that (on average) a reward higher than anything in the full dataset was obtained. Compared to the  many other variants commonly tested against in Design Bench, we obtain competitive performance.</figcaption>
+<br />
+</div>
+#+END_EXPORT
 
 # I simultaneously motivate maintaining the /spirit/ of offline MBO (i.e. don't abuse the reward oracle, treat it as sacred!), yet also propose breaking this rule because I really do believe there is value in exploiting simulation environments to help us with real world MBO tasks. But it's a difficult one to reconcile.
 
