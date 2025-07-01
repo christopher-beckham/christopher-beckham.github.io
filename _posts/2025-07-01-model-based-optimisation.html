@@ -1,10 +1,10 @@
 ---
-title: bridging offline and online model-based optimisation
+title: work reflection -- offline model-based optimisation
 description: TODO
 layout: default_latex
 ---
 
-<h1>offline model-based optimisation</h1>
+<h1>work reflection -- offline model-based optimisation</h1>
 
 <div hidden>
 <!-- This should be consistent with LATEX_HEADER -->
@@ -50,21 +50,21 @@ $$\newcommand{\drest}{\mathcal{D}_{\text{rest}}}$$
 <li><a href="#sec:last_year">2. last year's work</a>
 <ul>
 <li><a href="#sec:last_year_valid_metrics">2.1. ranking validation metrics</a></li>
-<li><a href="#org03bcaa1">2.2. 🪵🔥 reflecting on this work, and future work</a>
+<li><a href="#org8c22d3d">2.2. 🪵🔥 reflecting on this work, and future work</a>
 <ul>
-<li><a href="#org122b71e">2.2.1. can we combine online and offline mbo?</a></li>
+<li><a href="#org1c5cb5a">2.2.1. can we combine online and offline mbo?</a></li>
 </ul>
 </li>
-<li><a href="#org6ad8e67">2.3. links, and open source</a></li>
+<li><a href="#org7eb666c">2.3. links, and open source</a></li>
 </ul>
 </li>
-<li><a href="#org517ed86">3. References</a></li>
+<li><a href="#org96c074a">3. References</a></li>
 </ul>
 </div>
 </div>
 
 <p>
-In this post, I introduce offline model-based optimisation and share some highlights from research I published at the tail end of my PhD <a href="#citeproc_bib_item_1">[1]</a>. The focus is on issues of validation and extrapolation &#x2013; two topics that remain frustratingly underexplored in the field. Along the way, I offer an honest critique of my own work, reflect on broader challenges in offline MBO, and point to a few promising directions forward.
+In this post, I introduce offline model-based optimisation and share some highlights from research I published at the tail end of my PhD NO_ITEM_DATA:beckham2022exploring. The focus is on issues of validation and extrapolation &#x2013; two topics that remain frustratingly underexplored in the field. Along the way, I offer an honest critique of my own work, reflect on broader challenges in offline MBO, and point to a few promising directions forward.
 </p>
 
 <p>
@@ -264,7 +264,7 @@ From this, the function \(m_{\text{reward}}(\widehat{p_{\theta}}; \fvalid)\) now
 </p>
 
 <p>
-<a id="org8b2fca7"></a> Note that while Eqn. (2) is a principled and reasonable approach to determining how well \(\pt(x|y)\) extrapolates, this is just one possible validation metric of many. On one hand, it is quite interpretable: assuming a fixed \(\fvalid\), Eqn. (2) is maximised when samples produced from \(x \sim \pt(x|y), y \sim \pvalid(y)\) produce the largest average reward. On the other hand, \(\fvalid\) is an approximate model and shares the same vulnerabilities to adversarial examples and overconfidence as many other regression model. Therefore, validation metrics go beyond Eqn. (2), and may involve measuring other aspects of the generative model or data.
+<a id="org240abe8"></a> Note that while Eqn. (2) is a principled and reasonable approach to determining how well \(\pt(x|y)\) extrapolates, this is just one possible validation metric of many. On one hand, it is quite interpretable: assuming a fixed \(\fvalid\), Eqn. (2) is maximised when samples produced from \(x \sim \pt(x|y), y \sim \pvalid(y)\) produce the largest average reward. On the other hand, \(\fvalid\) is an approximate model and shares the same vulnerabilities to adversarial examples and overconfidence as many other regression model. Therefore, validation metrics go beyond Eqn. (2), and may involve measuring other aspects of the generative model or data.
 </p>
 
 <p>
@@ -466,8 +466,8 @@ Lastly, the results we obtained are shown below in Fig. (7).
 </div>
 </div>
 </div>
-<div id="outline-container-org03bcaa1" class="outline-3">
-<h3 id="org03bcaa1"><span class="section-number-3">2.2.</span> 🪵🔥 reflecting on this work, and future work</h3>
+<div id="outline-container-org8c22d3d" class="outline-3">
+<h3 id="org8c22d3d"><span class="section-number-3">2.2.</span> 🪵🔥 reflecting on this work, and future work</h3>
 <div class="outline-text-3" id="text-2-2">
 <p>
 In the name of transparency and introspection, I will discuss what I think could have been done better.
@@ -478,15 +478,15 @@ The fundamental question we are trying to answer is: given a list of validation 
 </p>
 
 <p>
-The paper <a href="#citeproc_bib_item_1">[1]</a> was also tough to write, and honestly, so was this blog post. Maybe it’s because there were just too many ideas bouncing around at once: the importance of using a <i>validation set</i>, how to design that set to test <i>extrapolation</i>, thinking about MBO through the lens of <i>generative modeling</i>, and on top of that, proposing the use <i>diffusion</i> models &#x2013; which, at the time, hadn’t really been explored in offline MBO. It would’ve been much simpler to just stick to the message of "validation sets, but for extrapolation". But at the time, that felt almost too obvious, like writing a paper just to say that validation sets are useful (which we already take for granted). But things that are supposedly "obvious" sometimes get published and go on to accrue hundreds of citations at the least, so maybe my barometer for that is miscalibrated.
+The paper NO_ITEM_DATA:beckham2022exploring was also tough to write, and honestly, so was this blog post. Maybe it’s because there were just too many ideas bouncing around at once: the importance of using a <i>validation set</i>, how to design that set to test <i>extrapolation</i>, thinking about MBO through the lens of <i>generative modeling</i>, and on top of that, proposing the use <i>diffusion</i> models &#x2013; which, at the time, hadn’t really been explored in offline MBO. It would’ve been much simpler to just stick to the message of "validation sets, but for extrapolation". But at the time, that felt almost too obvious, like writing a paper just to say that validation sets are useful (which we already take for granted). But things that are supposedly "obvious" sometimes get published and go on to accrue hundreds of citations at the least, so maybe my barometer for that is miscalibrated.
 </p>
 
 <p>
 I'm not sure how I would have approached the project if I did it again. When I reflect on past and ongoing industry work in similar problems, I notice a recurring pattern: we lean heavily on proxy metrics for validation. They’re cheap, measurable, and give us a sense of progress. But they’re also brittle and riddled with edge cases. It’s hard not to conclude that, sooner or later, <i>all roads lead to human feedback models</i>. It’s the only thing which consistently captures what we actually care about, even if it's noisy and expensive. So what does this mean then for this type of research? Maybe we ought to focus on best approximating the reward oracle and incorporate the best of both worlds in a single model: reliable, domain-specific priors, but also cheap and heterogenous sources of human feedback. The cost of obtaining labels is still an issue, but based on current trends it seems like the ever-increasing scale of foundation models will progressively allow for fewer-shot fine-tuning or prompting on top of them, which is a label efficient solution.
 </p>
 </div>
-<div id="outline-container-org122b71e" class="outline-4">
-<h4 id="org122b71e"><span class="section-number-4">2.2.1.</span> can we combine online and offline mbo?</h4>
+<div id="outline-container-org1c5cb5a" class="outline-4">
+<h4 id="org1c5cb5a"><span class="section-number-4">2.2.1.</span> can we combine online and offline mbo?</h4>
 <div class="outline-text-4" id="text-2-2-1">
 <p>
 Lastly, online and offline MBO feel somewhat siloed, when really one leads to another. Ideally, we want to build a <i>good inductive prior</i> in the offline setting and then segue into online to refine the model with <i>real interactions</i>. But in practice, offline MBO is only concerned with models which produce high-scoring samples "out of the box" with respect to the reward oracle, not whether that same model can be effectively used by an online learning algorithm to efficiently query it.
@@ -538,8 +538,8 @@ The twist is an idea I took from RL, which is the <i>discounted sum of rewards</
 </div>
 </div>
 </div>
-<div id="outline-container-org6ad8e67" class="outline-3">
-<h3 id="org6ad8e67"><span class="section-number-3">2.3.</span> links, and open source</h3>
+<div id="outline-container-org7eb666c" class="outline-3">
+<h3 id="org7eb666c"><span class="section-number-3">2.3.</span> links, and open source</h3>
 <div class="outline-text-3" id="text-2-3">
 <p>
 Here are some things you may find useful:
@@ -563,14 +563,12 @@ pip install . -e
 </div>
 </div>
 </div>
-<div id="outline-container-org517ed86" class="outline-2">
-<h2 id="org517ed86"><span class="section-number-2">3.</span> References</h2>
+<div id="outline-container-org96c074a" class="outline-2">
+<h2 id="org96c074a"><span class="section-number-2">3.</span> References</h2>
 <div class="outline-text-2" id="text-3">
 <style>.csl-left-margin{float: left; padding-right: 0em;}
  .csl-right-inline{margin: 0 0 0 2em;}</style><div class="csl-bib-body">
-  <div class="csl-entry"><a id="citeproc_bib_item_1"></a>
-    <div class="csl-left-margin">[1]</div><div class="csl-right-inline">C. Beckham, A. Piché, D. Vazquez, and C. Pal, “Exploring validation metrics for offline model-based optimisation with diffusion models,” <i>Transactions on machine learning research</i>, 2024.</div>
-  </div>
+  <div class="csl-entry">NO_ITEM_DATA:beckham2022exploring</div>
   <div class="csl-entry"><a id="citeproc_bib_item_2"></a>
     <div class="csl-left-margin">[2]</div><div class="csl-right-inline">F. Huszár, “How (not) to train your generative model: Scheduled sampling, likelihood, adversary?,” <i>Arxiv preprint arxiv:1511.05101</i>, 2015.</div>
   </div>
