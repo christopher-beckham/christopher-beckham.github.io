@@ -20,12 +20,12 @@
 
 #+BEGIN_EXPORT html
 ---
-title: bridging offline and online model-based optimisation
+title: work reflection -- offline model-based optimisation
 description: TODO
 layout: default_latex
 ---
 
-<h1>offline model-based optimisation</h1>
+<h1>work reflection -- offline model-based optimisation</h1>
 
 <div hidden>
 <!-- This should be consistent with LATEX_HEADER -->
