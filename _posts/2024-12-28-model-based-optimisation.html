@@ -1,0 +1,635 @@
+---
+title: bridging offline and online model-based optimisation
+description: TODO
+layout: default_latex
+---
+
+<h1>offline model-based optimisation</h1>
+
+<div hidden>
+<!-- This should be consistent with LATEX_HEADER -->
+$$\newcommand{\argmax}{\text{argmax}}$$
+$$\newcommand{\ft}{f_{\theta}}$$
+$$\newcommand{\ftrain}{f_{\text{train}}}$$
+$$\newcommand{\fvalid}{f_{\text{valid}}}$$
+$$\newcommand{\ftest}{f_{\text{test}}}$$
+$$\newcommand{\fphi}{f_{\phi}}$$
+$$\newcommand{\ftt}{f_{\theta}}$$
+$$\newcommand{\ds}{\mathcal{D}}$$
+$$\newcommand{\pt}{p_{\theta}}$$
+$$\newcommand{\ptnew}{\widehat{p_{\theta}}}$$
+$$\newcommand{\ptrain}{p_\text{train}}$$
+$$\newcommand{\pvalid}{p_\text{valid}}$$
+$$\newcommand{\dtrain}{\mathcal{D}_{\text{train}}}$$
+$$\newcommand{\dvalid}{\mathcal{D}_{\text{valid}}}$$
+$$\newcommand{\dtest}{\mathcal{D}_{\text{test}}}$$
+$$\newcommand{\drest}{\mathcal{D}_{\text{rest}}}$$
+</div>
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-header.png" width="600" alt="" />
+</figure>
+<figcaption><b><i>Attribution: Trabucco et al, 2022 (Design Bench).</i></b></figcaption>
+<br />
+</div>
+
+<div id="table-of-contents" role="doc-toc">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents" role="doc-toc">
+<ul>
+<li><a href="#sec:intro">1. intro - what is model-based optimisation?</a>
+<ul>
+<li><a href="#sec:intro_whatis">1.1. formalising offline mbo</a></li>
+<li><a href="#sec:intro_extrapolate">1.2. ‼️ reward-based extrapolation</a></li>
+<li><a href="#sec:intro_evaldifficult">1.3. ‼️ why evaluation is difficult (and misunderstood)</a></li>
+<li><a href="#sec:intro_summary">1.4. the train/val/test recipe, moving forward</a></li>
+</ul>
+</li>
+<li><a href="#sec:last_year">2. last year's work</a>
+<ul>
+<li><a href="#sec:last_year_valid_metrics">2.1. ranking validation metrics</a></li>
+<li><a href="#org03bcaa1">2.2. 🪵🔥 reflecting on this work, and future work</a>
+<ul>
+<li><a href="#org122b71e">2.2.1. can we combine online and offline mbo?</a></li>
+</ul>
+</li>
+<li><a href="#org6ad8e67">2.3. links, and open source</a></li>
+</ul>
+</li>
+<li><a href="#org517ed86">3. References</a></li>
+</ul>
+</div>
+</div>
+
+<p>
+In this post, I introduce offline model-based optimisation and share some highlights from research I published at the tail end of my PhD <a href="#citeproc_bib_item_1">[1]</a>. The focus is on issues of validation and extrapolation &#x2013; two topics that remain frustratingly underexplored in the field. Along the way, I offer an honest critique of my own work, reflect on broader challenges in offline MBO, and point to a few promising directions forward.
+</p>
+
+<p>
+While I’m no longer working full-time in academia, this topic still matters a lot to me. If any of it resonates with you &#x2013; whether you’re a researcher, engineer, or just curious, I’d love to chat, albeit in a bandwidth-conscious capacity.
+</p>
+<div id="outline-container-sec:intro" class="outline-2">
+<h2 id="sec:intro"><span class="section-number-2">1.</span> intro - what is model-based optimisation?</h2>
+<div class="outline-text-2" id="text-sec:intro">
+<p>
+In model-based optimization (MBO), the goal is to design inputs—often tangible, real-world objects—that maximise a reward function reflecting some desired property. Crucially, this reward function exists in the real world, meaning that evaluating it requires physically testing the input and observing its outcome. For example, in protein design, the input might be a molecular specification, and the reward could be the protein’s ability to bind to a specific kind of receptor in the body. In this setting, the true objective \(f(x) \in \mathbb{R}^{+}\) measures binding affinity, and querying it involves running expensive lab experiments. We will refer to this "true" objective function as the <i>reward oracle</i>.
+</p>
+
+<p>
+In theory, we could optimise the reward oracle \(f\) directly by combining it with a search algorithm, learning from past evaluations to guide the search for better inputs. This involves learning a "surrogate" model \(\ft\), which is exploited by the search algorithm and is also refined iteratively based on feedback provided by the reward oracle. This is called <i>online model-based optimisation</i> (<i>"online MBO"</i>). In practice however, querying \(f\) is often prohibitively expensive and slow, and we need many samples if we want the surrogate model to learn enough about the underlying problem in order to guide the search towards promising candidates. 
+</p>
+
+<p>
+But if we already have an existing dataset of input-reward pairs (here \(y = f(x)\) is the "reward"), we can use it to <i>pre-train</i> the surrogate model. The idea is that a well-trained surrogate may then require far fewer queries during the online phase to guide the search effectively. This pre-training stage is known as <i>offline model-based optimisation</i> (<i>"offline MBO"</i>).
+</p>
+
+<p>
+Since \(\ft\) is an approximation however, it is particularly brittle. It can behave unpredictably on regions of input space which are not represented in the training data (what we call "out-of-distribution"), and this is especially problematic since we assume the best input candidates are not already yet in the training set. Such models are also vulernable to "adversarial examples", where by naively optimising for the highest-scoring candidate with respect to the surrogate often produces one which is no longer plausible according to real world constraints. This makes it an interesting yet challenging area of research.
+</p>
+</div>
+<div id="outline-container-sec:intro_whatis" class="outline-3">
+<h3 id="sec:intro_whatis"><span class="section-number-3">1.1.</span> formalising offline mbo</h3>
+<div class="outline-text-3" id="text-sec:intro_whatis">
+<p>
+In the offline setting, we assume access to a labelled dataset of input-output pairs, denoted \(\mathcal{D} = \{(x_i,y_i)\}_{i=1}^{N}\), where \(y_i \in \mathbb{R}^{+}\) and \(y_i = f(x_i)\). The goal is to learn a model of the reward &#x2013; typically a surrogate function \(\ft\) &#x2013; without querying the true function during training or model selection. While much of the offline literature focuses on a surrogate \(\ft\), it's arguably more useful to think in terms of a generative model that defines a joint distribution \(\pt(x,y)\). Via Bayes' rule, it can factorise in one of two ways.
+</p>
+
+<p>
+The first is \(\pt(y|x)p(x)\), and we can think of \(\pt(y|x)\) as the probabilistic form of the surrogate, i.e. \(\ft(x)\) parameterises the mean of the distribution. We can interpret this as: first we sample \(x\) from some prior (e.g. the training distribution), then we predict its reward. While this is <i>technically</i> a generative model, it is not particularly useful for sampling high-scoring candidates as the only sampling we do is from the training data (and not a model we have learned).
+</p>
+
+<p>
+In practice, a common baseline takes a hybrid approach which doesn't quite correspond cleanly to this. This involves sampling \(x\) from the training data \(x \sim \ptrain(x)\), which is then iteratively updated by ascending the gradient of \(\ft(x)\) (which is typically the mean of \(\pt(y|x)\)). While this produces inputs with higher predicted reward, it abandons the semantics of the above factorisation and tends to produce poor inputs when scored against the reward oracle.<sup><a id="fnr.hillclimb" class="footref" href="#fn.hillclimb" role="doc-backlink">1</a></sup>
+</p>
+
+<p>
+The second factorisation is \(\pt(x|y)p(y)\), which we can think of as saying: first choose the desired reward \(y\), then find an input which has that reward. Since \(\pt(x|y)\) is a <i>conditional generative model</i>, not only can we target high reward regions, we can also avoid generating implausible inputs since it is a mechanism built into the model. (While generative models are not totally invulnerable to generating implausible inputs, they still do a lot better than discriminative models as plausibility is built into the model by design, i.e. likelihood.)
+</p>
+
+<p>
+For the remainder of this work, we will define our joint generative model \(\pt(x,y)\) as the second factorisation:
+</p>
+
+\begin{align}
+\pt(x,y) = \pt(x|y)\ptrain(y),
+\end{align}
+
+<p>
+where \(\ptrain(y)\) is the empirical distribution over the rewards in the training set.
+</p>
+</div>
+</div>
+<div id="outline-container-sec:intro_extrapolate" class="outline-3">
+<h3 id="sec:intro_extrapolate"><span class="section-number-3">1.2.</span> ‼️ reward-based extrapolation</h3>
+<div class="outline-text-3" id="text-sec:intro_extrapolate">
+<p>
+The key idea which seperates MBO from regular generative modelling is that we don't just want to generate any kind of sample from the model. We would like to generate samples whose <i>real</i> reward \(y\) is as large as possible, as these have the most real world utility. The difficulty lies in the fact that these (extremely) high scoring samples do not exist in the training set, otherwise MBO would be a much simpler task where we only need to generate things that plausibly look like what is already in the training set. This means MBO has to <i>extrapolate</i> &#x2013; it has to learn what constitutes low and medium-scoring samples, and infer what a high-scoring sample may look like.
+</p>
+
+<p>
+This also implies that the behaviour of the generative model needs to somehow be "tweaked" at generation time. For instance, we have defined a generative model \(\pt(x,y)\) to be the following:
+</p>
+
+\begin{align}
+\pt(x,y) = \pt(x|y)\ptrain(y),
+\end{align}
+
+<p>
+where \(\ptrain\) is the empirical distribution of \(y\)'s observed in training. If we simply sample according to this strategy, we will only sample conditioned on the kinds of reward seen in the training set. To rectify this, we <i>could</i> switch out the prior for another distribution \(\widehat{p}(y)\), one which reflects a larger distribution of rewards. For instance, if \(\ptrain(y)\) reflects a range of values from \([0,100)\), perhaps the new prior reflects those from \([100,200]\). From this, we can define the "extrapolated" model:
+</p>
+
+\begin{align}
+\widehat{\pt}(x,y) = \pt(x|y)\widehat{p}(y).
+\end{align}
+
+<p>
+(I am using the widehat notation '\(\widehat{\pt}\)' to symbolise 'higher', a version of \(\pt\) which is biased towards high scoring samples, rather than something implying a statistical approximation.)
+</p>
+
+<p>
+Ideally we would like to find an "extrapolated" model \(\widehat{\pt}(x,y)\) such that it maximises the average reward coming from the <i>reward oracle</i>, which we will simply call the "test reward":
+</p>
+
+\begin{align}
+m_{\text{test-reward}}(\tilde{p}) = \mathbb{E}_{x \sim \tilde{p}(x,y)} f(x), \tag{1}
+\end{align}
+
+<p>
+and therefore we wish to maximise \(m_{\text{test-reward}}(\ptnew)\). In other words, we want to find a \(\pt(x|y)\) and \(\widehat{p}(y)\) such that samples produced by the former have as large of a reward as possible, according to the reward oracle. Since this equation involves \(f\) which is too expensive to compute during training or model selection, it is only intended to be executed at the very end of the machine learning pipeline. But this does not help us during training or model selection.
+</p>
+
+<p>
+To rectify this, we could simply replace \(f\) with the surrogate model \(\ft\). However, \(\ft\) has also only been trained on the same empirical distribution of rewards, and we cannot expect it to score inputs conditioned on e.g. \([100,200]\) reliably, as this is clearly out-of-distribution. One approach is to split the dataset into low-to-moderate scoring examples and high-scoring examples. For instance, if our <i>original</i> dataset only represented samples with reward in \([0,100]\), then we could for instance split it into \([0,50]\) (low-to-moderate) and \([50,100]\) for high scoring (see Fig. 1). The low-to-moderate split is used to train the generative model, while the latter forms a validation set. 
+</p>
+
+<p>
+Both data splits (which is just the full dataset) can actually used to train a <i>validation proxy</i>, \(\fvalid\). It makes sense to evaluate \(\ptnew\) against this because it has been trained on the full distribution of rewards coming from the dataset. Since \(\fvalid\) has "seen" samples in \([50,100]\), even if the generative model hasn't, it can still produce inputs conditioned on this range and we can use the validation proxy to validate it. Therefore, this setup allows us to measure not just generalization, but generalization specifically in the context of <i>reward extrapolation.</i>
+</p>
+
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-train-val-workflow.png" width="700" alt="" />
+</figure>
+<figcaption><b><i>Figure 1: "Actual data distribution" signifies the real data, where the assumed max reward is 200. Since we assume our offline dataset only contained reward values between 0 and 100, if we want to measure extrapolation then we need to split this into two subsets. In this illustration, 0-50 is chosen for train and 50-100 for validation.</i></b></figcaption>
+<br />
+</div>
+</div>
+</div>
+<div id="outline-container-sec:intro_evaldifficult" class="outline-3">
+<h3 id="sec:intro_evaldifficult"><span class="section-number-3">1.3.</span> ‼️ why evaluation is difficult (and misunderstood)</h3>
+<div class="outline-text-3" id="text-sec:intro_evaldifficult">
+<p>
+With the rapid progress in generative modeling over the past few years, our approach to evaluation has evolved. In earlier eras of machine learning, it was common to assess models based on likelihood over a test or validation set &#x2013; a natural outcome of maximum likelihood estimation, where the goal is to find parameters \(\theta\) that maximise the probability of the observed data.
+</p>
+
+<p>
+Because of the extremely rapid advances in generative modelling in the past few years, the way we have performed evaluation has changed. In the olden days of machine learning, it was more common to evaluate machine learning models by way of likelihood on a test or validation set. This is a natural consequence of maximum likelihood estimation, which states that we wish to find a model which best "explains" the data, i.e. find parameters \(\theta\) such that the parameterised model assigns the highest average likelihood across all samples. However, likelihood is only concerned with how plausible <i>pre-collected samples</i> are, rather than whether samples generated from the model itself satisfy a useful notion of preference. (Also, likelihood isn't a particularly accurate measure of sample quality. <a href="#citeproc_bib_item_2">[2]</a>, <a href="#citeproc_bib_item_3">[3]</a>, <a href="#citeproc_bib_item_4">[4]</a>) Such preferences can be encoded with a reward function \(f\), but this is typically expensive to compute as it reflects a real world process (i.e. \(y = f(x)\) is like asking a human rater to evaluate \(x\)).
+</p>
+
+<p>
+As mentioned in Sec. <a href="#sec:intro_extrapolate">1.2</a>, a principled strategy is to approximate \(f\) with \(\fvalid\) and continue forward. Even if \(\fvalid\) is an approximation, it actually serves as a useful anchor for the generative model. This is because even though it is only trained on low-to-moderate scoring inputs, we can measure its ability to generate high-scoring inputs against the validation proxy which has technically seen high scoring inputs during training. Compared to other MBO literature, I make a very explicit distinction between <i>validation</i> and <i>testing</i> which does not seem to be well-respected, and I partly suspect it's because there is a conflation between <i>"real world" MBO</i> and <i>"academic" MBO</i>. (These are terms I created, and the latter is not meant to be read in a disparaging sense.)
+</p>
+
+<p>
+By "academic MBO" I simply mean doing MBO in the context of academic research, i.e. publishing papers. In this situation it may not be practically feasible to evaluate the reward oracle \(f\), for instance in the case where the benchmark data involves an extremely expensive human evaluation (e.g. protein synthesis). To rectify this, some MBO datasets are actually based on simulation environments, and the same simulation provides a reward oracle which can be used to score the data.
+</p>
+
+<p>
+Since the simulator is just a function that can be freely executed <i>in silico</i> with negligible monetary cost, researchers can (intentionally or not) "violate the spirit" of offline MBO by abusing the simulator and constantly querying it during training or model seleection.<sup><a id="fnr.sim2real" class="footref" href="#fn.sim2real" role="doc-backlink">2</a></sup> This is especially enticing in academia because there is an overwhelming bias towards pushing things that "beat SOTA" or are "novel". Conversely, in "real world" MBO there is already a safeguard against abusing the ground truth and that is time and money. Therefore, in order to respect the economic burden associated with MBO, a validation set needs to set aside as this is ultimately what we will use in the real world before sending off samples to be tested.
+</p>
+
+<p>
+Apart from simulation environments, most MBO datasets are really just finite collections of data from a real world problem. Since the reward oracle is infeasible to compute for academic research, a "test proxy" \(\ftest\) is trained on the entire dataset and used as an approximation to the reward oracle. Like with the simulator, this can be easily abused, and necessitates the use of a seperate validation proxy \(\fvalid\).
+</p>
+
+<p>
+Due to the different types of rewards oracles already mentioned, below is a table explaining what they are for:
+</p>
+
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">name</th>
+<th scope="col" class="org-left">what is it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-left">reward oracle</td>
+<td class="org-left">\(f(x)\): real world reward model, extremely expensive to compute. This may also refer to a simulation environment's reward model.</td>
+</tr>
+
+<tr>
+<td class="org-left">"proxy" oracle</td>
+<td class="org-left">-  \(\ft\): a regression model trained on the training set. While it is a discriminative model, it can be "hacked" to act as a generative model. In this article, I prefer to use generative modelling terminology, in which case \(\pt(y \vert x)\) is used instead. However, in this post I prefer to use the <i>conditional</i> density \(\pt(x  \vert y)\) will usually be referred to, instead of the other terms.</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">- \(\fvalid\) : typically not defined in literature, but this is specifically a proxy oracle intended for model selection and hyperparameter tuning. It is trained on the combined training and validation set. Here we will call it the <b><b>validation proxy</b></b>.</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">- \(\ftest\) : proxy oracle trained on train + valid + test set (all of the data). This typically exists in "academic MBO" where the ground truth is also too impractical to compute at test time. Here we will call it the <b><b>test proxy</b></b>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="outline-container-sec:intro_summary" class="outline-3">
+<h3 id="sec:intro_summary"><span class="section-number-3">1.4.</span> the train/val/test recipe, moving forward</h3>
+<div class="outline-text-3" id="text-sec:intro_summary">
+<p>
+As discussed in Sec. <a href="#sec:intro_extrapolate">1.2</a>, we need to measure not just generalisation, but extrapolation. If our validation set follows the proposed setup in Fig. (1), then we can just approximate Eqn. (1) by introducing some approximate reward model \(\tilde{f}\):
+</p>
+
+\begin{align}
+m_{\text{reward}}(\tilde{p}; \tilde{f}) &= \mathbb{E}_{x \sim \tilde{p}(x,y)} \tilde{f}(x). \tag{2}
+\end{align}
+
+<p>
+From this, the function \(m_{\text{reward}}(\widehat{p_{\theta}}; \fvalid)\) now constitutes our first validation metric. By "validation metric" we simply mean some function which measures the ability of the model to extrapolate. More generally, it may not only be a function of an approximate oracle \(\tilde{f}\), but also other things such as the validation set itself. (We will discuss some other ones later.)
+</p>
+
+<p>
+<a id="org8b2fca7"></a> Note that while Eqn. (2) is a principled and reasonable approach to determining how well \(\pt(x|y)\) extrapolates, this is just one possible validation metric of many. On one hand, it is quite interpretable: assuming a fixed \(\fvalid\), Eqn. (2) is maximised when samples produced from \(x \sim \pt(x|y), y \sim \pvalid(y)\) produce the largest average reward. On the other hand, \(\fvalid\) is an approximate model and shares the same vulnerabilities to adversarial examples and overconfidence as many other regression model. Therefore, validation metrics go beyond Eqn. (2), and may involve measuring other aspects of the generative model or data.
+</p>
+
+<p>
+So far we have discussed the need to measure extrapolation (Sec <a href="#sec:intro_extrapolate">1.2</a>), as well as the lack of a validation set which is crucial to measuring it (Sec <a href="#sec:intro_evaldifficult">1.3</a>). From this we can motivate a very principled and reasonable train-validate-test recipe, which is the following:
+</p>
+
+<ul class="org-ul">
+<li><b>Inputs</b>: Split total dataset \(\mathcal{D}\) into: \(\dtrain\), \(\dvalid\), and \(\dtest\). Ensure that the valid and test sets contain higher reward inputs, as per Sec. <a href="#sec:intro_extrapolate">1.2</a>.</li>
+<li><b>Training</b>: Train the generative model \(\pt(x|y)\) on \(\dtrain\). Also, if the validation metric necessitates it, train a <i>validation proxy</i> \(\fvalid\) on \(\dtrain \cup \dvalid\).</li>
+<li><b>Validation</b>: Use \(\dvalid\) and/or \(\fvalid\) for model selection / hyperparameter tuning.</li>
+<li><b>Final evaluation</b>: assuming we already have a recipe for generating high scoring samples from the model, score those samples with either the reward oracle (if we operate in "real world MBO"), or test proxy (if we operate in "academic MBO").
+<ul class="org-ul">
+<li>If we need the test proxy, train a \(\ftest\) on \(\mathcal{D}\), and measure the average reward via \(m_{\text{reward}}(\widehat{p_{\theta}}; \ftest)\).</li>
+</ul></li>
+</ul>
+
+<p>
+<b>Finally</b>: note that for the "real world MBO" step in "final evaluation", since we'll be sending off samples to the real world, it is much more data efficient to first re-train the best model on the entire dataset \(\mathcal{D}\) using the same hyperparameter configuration, and then use that to generate samples.
+</p>
+
+<p>
+In the absence of a reward oracle which can be judiciously evaluated, we need to turn to cheap-to-compute validation metrics. We already saw one in Eqn. (2), and there are many others which can be conceived of. Given a list of these metrics a-priori, how can we figure out which one performs the best for our task?
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-sec:last_year" class="outline-2">
+<h2 id="sec:last_year"><span class="section-number-2">2.</span> last year's work</h2>
+<div class="outline-text-2" id="text-sec:last_year">
+<p>
+Let us begin with a summary of everything so far:
+</p>
+
+<ul class="org-ul">
+<li>(1) In offline model-based optimisation we wish to learn a reward-conditioned generative model from an offline dataset of input-reward pairs. The rewards are originally obtained from a ground truth reward "oracle", which is assumed to be too expensive to query during training or validation of the generative model.</li>
+<li>(2) Evaluating samples from a generative model is a <i>difficult</i> task. Firstly, likelihood-based evaluation is not sufficient to evaluate the quality of outputs. Secondly, samples ideally need to be evaluated by human feedback (which is perfectly encapsulated by the notion of a reward oracle). Lastly, models trained need to <i>extrapolate</i> beyond the rewards they were trained on, as the better they can extrapolate, the more impactful they will be in the real-world.</li>
+<li>(3) Evaluation is difficult, often neglecting a validation set. This may be related to the confusion between "real world" and "academic" MBO. In "academic MBO", the reward oracle is replaced with a test proxy or simulator. While these are technically useful and cheap-to-compute, non-sparing use of these fundamentally violate the <i>spirit</i> of offline MBO, whose emphasis is on trying to extract as much value as possible from the available data without resorting to expensive reward oracle queries.</li>
+<li>(4) (Repeating last section's paragraph) In the absence of a reward oracle which can be judiciously evaluated, we need to turn to cheap-to-compute validation metrics. We already saw one in Eqn. (2), and there are many others which can be conceived of. Given a list of these metrics a-priori, how can we figure out which one performs the best for our task?</li>
+</ul>
+
+<p>
+The work I published last year addresses these points.
+</p>
+
+<p>
+To implement the train-valid-test protocol described, some technical considerations were needed. Experiments were implemented with <i>Design Bench</i>, a popular MBO benchmarking framework <a href="#citeproc_bib_item_5">[5]</a>. Design Bench imposes a reward threshold \(\gamma\) which dictates which samples are assigned to the training set. For example, any samples whose \(y \leq \gamma\) are assigned to the training set, and the rest is obscured from the user (in an API-like sense). Because of this, all of the remaining samples \(\gt \gamma\) are not assigned to a validation set &#x2013; in fact, the library does not prescribe one at all. Two possible solutions are:
+</p>
+
+<ul class="org-ul">
+<li>(1) Simply hold out some small part of the training set as the validation set. This respects the intended design of the library, but effectively reduces the size of the training set and therefore handicap model performance compared to other Design Bench-based models which use the full training set. (In Fig. 1 left, \(\dtrain\) is shown here, so imagine cutting out some portion of this as the validation set.)</li>
+<li>(2) Define that all samples whose \(y \gt \gamma\) belong to the validation set (Fig. 1, right). Since the validation proxy \(\fvalid\) is always trained on the combined train+valid split, this means it is trained on the full dataset. This technique does not respect the intended design of the library, even if its motivation is quite principled.</li>
+</ul>
+
+<p>
+I chose (2), which is illustrated in Fig. (3)-right. However, this requires some nuance when it comes to interpreting the relationship between the validation proxy \(\fvalid\) and the test oracle \(\ftest\). If the dataset is based on a simulator, then we already have "\(f\)" and we can train \(\fvalid\) on the full dataset as the simulator can be treated as the ground truth from which the dataset's samples were drawn from.
+</p>
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/split1.png" width="350" alt="" /> &nbsp; &nbsp; <img class="figg" src="/assets/mbo/split2.png" width="350" alt="" /> 
+</figure>
+<figcaption><b>Figure 3.</b> <i>Left:</i> Design Bench's API exposes a training set which is all samples which fall below the threshold gamma (shown as the red line). <i>Right:</i> By considering samples which exceed gamma, we can define a validation set consistent with Sec. 1.3. The validation proxy is then trained on both the validation and training splits, which effectively is the full dataset, <b>if and only if the reward oracle is either from the real world or a simulator.</b></figcaption>
+<br />
+</div>
+
+
+<p>
+Otherwise, if \(\ftest\) is actually an approximate test oracle, then by Design Bench's definition it has been trained on the full dataset. This means training a validation proxy would involve training on all of the data and therefore be equivalent to a test oracle. But the latter needs to have seen more data to be a useful tool to measure generalisation once training and validation is completed. Therefore, in this situation, we let the test surrogate remain as the "gold standard" which has been trained on all of the data, and we only allow the validation proxy to be trained on a subset of the full dataset. Concretely, this would be the training set, plus an X% subsample of any examples whose reward exceeds \(\gamma\). This is shown below in Fig. (4), and in this illustration X% is 50%.
+</p>
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/split3.png" width="350" alt="" /> &nbsp; &nbsp; <img class="figg" src="/assets/mbo/split4.png" width="350" alt="" /> 
+</figure>
+<figcaption><b>Figure 4.</b>If the true reward oracle cannot be evaluated at test time, Design Bench defines the test proxy as being trained on the full dataset. This however contradicts our definition of a validation proxy, which is trained in the same way (<i>left</i>). To resolve this, we can define the validation set as being a random subsample of samples greater than gamma (in the figure, this is 50%). That way, the test oracle still gets to be trained and defined with respect to the full dataset and serve its purpose as a gold standard to measure generalisation.</figcaption>
+<br />
+</div>
+
+
+<p>
+Therefore, for Design Bench, if we are dealing with a task for which no simulator environment exists, then we have to use a test proxy. That means invoking Fig. (4) for determining the precise train, valid, and test splits. Otherwise, if a simulator already exists, then we invoke Fig. (3).
+</p>
+</div>
+<div id="outline-container-sec:last_year_valid_metrics" class="outline-3">
+<h3 id="sec:last_year_valid_metrics"><span class="section-number-3">2.1.</span> ranking validation metrics</h3>
+<div class="outline-text-3" id="text-sec:last_year_valid_metrics">
+<p>
+Now, all that is left is a validation metric. This metric is a function of the generative model \(\pt\), and may also be a function of the validation proxy \(\fvalid\) and validation set \(\dvalid\). (To keep notation light, we will assume that the metric \(m\) can take arbitrary number of arguments, even though so far we see it as a function of the first two.)
+</p>
+
+<p>
+We already saw one of these metrics, which is simply Eqn. (2) but with \(\fvalid\) substituted for \(\tilde{f}\), which is just \(m_{\text{reward}}(\tilde{p}; \fvalid)\):
+</p>
+
+\begin{align}
+m_{\text{reward}}(\ptnew, \fvalid) & = \mathbb{E}_{x \sim  \ptnew(x,y)} \fvalid(x) \\
+& = \mathbb{E}_{x \sim  \pt(x|y)\pvalid(y)} \fvalid(x). \tag{3}
+\end{align}
+
+<p>
+This metric doesn't particularly care about how "calibrated" the model is. For instance, if we condition on \(y = 50\) and get an example whose reward according to \(\fvalid\) is \(1000\), the model doesn't get penalised for it. The only thing that matters is that the samples from \(\ptnew\) score as high as possible on average. Otherwise, is this is concerning, another validation metric is the "agreement" <a href="#citeproc_bib_item_6">[6]</a>, which measures the extent to which the validation proxy agrees with the supposed label of the input generated by the model:
+</p>
+
+<p>
+\[m_{\text{agreement}}(\tilde{p}; \tilde{f}) = \mathbb{E}_{x \sim \tilde{p}(x,y)} (y - \tilde{f}(x))^2. \tag{4}\] 
+</p>
+
+
+<p>
+In our case, if we substitute in \(\tilde{f} = \fvalid\) and \(\tilde{p} = \ptnew\) we get:
+</p>
+
+<p>
+\[m_{\text{agreement}}(\ptnew; \fvalid) = \mathbb{E}_{x \sim \ptnew(x,y)} (y - \fvalid(x))^2. \tag{4}\] 
+</p>
+
+<p>
+For example, if we sample \(y=50\) to generate an example and this is what \(\fvalid\) also agrees with it and predicts the same value, then the resulting loss will be zero. More generally, this metric selects for generative models which can correctly produce samples in the extrapolated regime, according to the validation proxy.
+</p>
+
+<p>
+In principle, these metrics could be combined together as a sum (or a weighted sum), but this slightly complicates the analysis as we also have to determine suitable scaling factors for each term.
+</p>
+
+<p>
+Other validation metrics I defined were:
+</p>
+
+<ul class="org-ul">
+<li>\(\mathcal{M}_{\text{FD}}\): Frechet Distance (<i>FD</i>) (<a href="#citeproc_bib_item_4">[4]</a>, <a href="#citeproc_bib_item_7">[7]</a>) between the distribution of samples coming from \(\ptnew\)  and the validation set. Note that this is <i>not</i> the same as Frechet <i>Inception</i> Distance (<i>FID</i>), which uses the ImageNet-pretrained Inception network as a feature extractor. Here, we define the feature extractor as being some suitable bottleneck in \(\fvalid\), as we want to leverage features which are specific to the domain at hand.</li>
+<li>\(\mathcal{M}_{\text{DC}}\): The "density and coverage" metric proposed in <a href="#citeproc_bib_item_8">[8]</a>, which is an improved version of the precision and recall metric originally proposed in <a href="#citeproc_bib_item_9">[9]</a>. This metric was originally motivated to tease out two important factors which determine how close two distributions are: sample quality and mode coverage, which can be thought of as precision and recall, respectively. While these terms can be individually computed, here I simply sum both terms, simply treating it as an alternative metric which can be compared to FD.</li>
+<li>\(\mathcal{M}_{\text{C-DSM}}\): The conditional denoising diffusion loss <a href="#citeproc_bib_item_10">[10]</a> but evaluated on the validation set. Essentially, we are asking how well the model can denoise high scoring samples that it has never seen before. Since DDPMs are <i>likelihood-based</i> models, this is also a likelihood-based loss and therefore may not correlate well with sample quality. However, it is trivial to incorporate as a validation metric since it is already defined as a training loss.</li>
+</ul>
+
+<p>
+Going back to the purpose of this work, we ask: what validation metrics work best, and how do we measure it? Ideally, evaluating validation metrics requires access to the reward oracle, as we need to measure them up against some gold standard. That’s where simulation environments become interesting: they give us access to a something which very closely mimics a real world oracle, letting us test how well different validation metrics correlate with the actual ground truth. The idea is to use this setup to run a large-scale comparison of metrics across many simulated datasets, so we can better understand which validation metrics are most trustworthy when we don’t have access to the ground truth. Ideally, this gives us actionable guidance for real-world MBO deployments.
+</p>
+
+<p>
+To evaluate the effectiveness of a validation metric, we conduct a large-scale empirical study. Specifically, we train a wide variety of model configurations, log the value of each validation metric, and assess how well these values correlate with the corresponding true test reward, as computed by Equation (1). For any given validation metric, this yields a scatter plot where the x-axis denotes the metric's value and the y-axis represents the true reward under the "extrapolated" model \(\ptnew(x, y)\). This also makes it possible to compute the Pearson correlation, i.e. how does the test reward (y-axis) behave in relation to the validation metric?
+</p>
+
+<p>
+We perform this study using denoising diffusion probabilistic models (DDPMs) <a href="#citeproc_bib_item_10">[10]</a>, chosen for their flexibility and strong performance in generative modeling. Holding the DDPM backbone architecture fixed, we vary several hyperparameters—including network width, reward dropout probability<sup><a id="fnr.ddpm" class="footref" href="#fn.ddpm" role="doc-backlink">3</a></sup>, and reward guidance strength. Each unique combination of these hyperparameters defines a distinct configuration.
+</p>
+
+<p>
+The results are illustrated below for several continuously-valued datasets from Design-Bench<sup><a id="fnr.cont" class="footref" href="#fn.cont" role="doc-backlink">4</a></sup>. In particular, the Ant, Kitty, and Hopper environments provide simulation reward oracles, making them especially well-suited for this type of analysis. For completeness, we also include the Superconductor dataset, which uses a test proxy but still serves as a valuable point of comparison.
+</p>
+
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-scatterplot-figures.png" width="700" alt="" />
+</figure>
+<figcaption><b>Figure 5.</b> Each dataset is a subfigure, and each column is a validation metric. Each metric is plotted against <i>M_test_reward</i> , and points are colour-coded according to a diffusion-model specific generation parameter called label guidance. The Pearson correlation ρ is shown above each plot. Since each validation metric in this figure is designed to be minimised (negative signs are added to metrics which typically are maximised), we are interested in metrics which are most negatively correlated with the test reward.</figcaption>
+<br />
+</div>
+
+<p>
+Some metrics are plotted as their negatives (e.g., \(-\mathcal{M}{\text{DC}}\) and \(-\mathcal{M}{\text{reward}}\)) to maintain consistency across all plots. Although these metrics are originally defined to be maximised, we negate them so that all metrics are presented as quantities to be minimised. Since this also applies to the test reward \(\mathcal{M}_{\text{test-reward}}\), the best validation metric is one which is the most strongly <i>negatively correlated</i> with it.
+</p>
+
+<p>
+Since the above plots are a lot of information to process, we can just jump straight to the figure which barplots the Pearson correlation for each of these experiments:
+</p>
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-barplot.png" width="700" alt="" />
+</figure>
+<figcaption><b>Figure 6.</b></figcaption>
+<br />
+</div>
+
+<p>
+The above figure differs a little from the one before it, as we actually have three additional groups of experiments on the right corresponding to "c.g." in parentheses. These correspond to the "classifier guidance" variant of diffusion <a href="#citeproc_bib_item_11">[11]</a>. I won't go into details here, but you can think of this variant as really defining a special joint distribution \(\pt(x,y) \propto p_{\beta}(y|x)^{w}\pt(x)\) where \(p_{\beta}(y|x)\) is a regression model also trained on the training data. (So it's like a probabilistic form of "\(\ft\)", only that here we use subscript \(\beta\) as \(\theta\) is already assigned to the generative model.) Conversely, "c.f.g." <a href="#citeproc_bib_item_12">[12]</a> can simply be thought of as just \(\pt(x,y) = \pt(x|y)p(y)\) but with some algebra applied to Bayes' rule such that we condition on an "implicit" classifier \(\pt(y|x)\).
+</p>
+
+<p>
+Overall, if we count which validation metric was most negatively correlated with the test reward for each dataset-guidance configuration, agreement is the most performant, followed by Frechet Distance.
+</p>
+
+<p>
+Lastly, the results we obtained are shown below in Fig. (7).
+</p>
+
+<div id="images">
+<br />
+<figure>
+<img class="figg" src="/assets/mbo/mbo-results-table.png" width="700" alt="" />
+</figure>
+<figcaption><b>Figure 7.</b> The c.f.g. and c.g. variants of our diffusion are shown in the bottom two rows. The numbers denote the normalised mean performance of samples with respect to the full dataset, which means values greater than 1 indicate that (on average) a reward higher than anything in the full dataset was obtained. Compared to the  many other variants commonly tested against in Design Bench, we obtain competitive performance.</figcaption>
+<br />
+</div>
+</div>
+</div>
+<div id="outline-container-org03bcaa1" class="outline-3">
+<h3 id="org03bcaa1"><span class="section-number-3">2.2.</span> 🪵🔥 reflecting on this work, and future work</h3>
+<div class="outline-text-3" id="text-2-2">
+<p>
+In the name of transparency and introspection, I will discuss what I think could have been done better.
+</p>
+
+<p>
+The fundamental question we are trying to answer is: given a list of validation metrics a-priori, which are most useful as substitutes for the reward oracle? We exploited the fact that simulation environments exist &#x2013; which grant access to the reward oracle &#x2013; and then measure how correlated they are on four datasets. While this work isn’t about setting new benchmark records, the results are very encouraging (Fig. (7)). That said, it’s worth noting that this correlation is measured on the same data used to select the best metric, so there’s an inherent optimism bias. The ideal thing to do would have been to demonstrate that these metrics perform well on other downstream tasks. (The irony of this is not lost on me, but by the time I realised its significance I was very burned out from the project.)
+</p>
+
+<p>
+The paper <a href="#citeproc_bib_item_1">[1]</a> was also tough to write, and honestly, so was this blog post. Maybe it’s because there were just too many ideas bouncing around at once: the importance of using a <i>validation set</i>, how to design that set to test <i>extrapolation</i>, thinking about MBO through the lens of <i>generative modeling</i>, and on top of that, proposing the use <i>diffusion</i> models &#x2013; which, at the time, hadn’t really been explored in offline MBO. It would’ve been much simpler to just stick to the message of "validation sets, but for extrapolation". But at the time, that felt almost too obvious, like writing a paper just to say that validation sets are useful (which we already take for granted). But things that are supposedly "obvious" sometimes get published and go on to accrue hundreds of citations at the least, so maybe my barometer for that is miscalibrated.
+</p>
+
+<p>
+I'm not sure how I would have approached the project if I did it again. When I reflect on past and ongoing industry work in similar problems, I notice a recurring pattern: we lean heavily on proxy metrics for validation. They’re cheap, measurable, and give us a sense of progress. But they’re also brittle and riddled with edge cases. It’s hard not to conclude that, sooner or later, <i>all roads lead to human feedback models</i>. It’s the only thing which consistently captures what we actually care about, even if it's noisy and expensive. So what does this mean then for this type of research? Maybe we ought to focus on best approximating the reward oracle and incorporate the best of both worlds in a single model: reliable, domain-specific priors, but also cheap and heterogenous sources of human feedback. The cost of obtaining labels is still an issue, but based on current trends it seems like the ever-increasing scale of foundation models will progressively allow for fewer-shot fine-tuning or prompting on top of them, which is a label efficient solution.
+</p>
+</div>
+<div id="outline-container-org122b71e" class="outline-4">
+<h4 id="org122b71e"><span class="section-number-4">2.2.1.</span> can we combine online and offline mbo?</h4>
+<div class="outline-text-4" id="text-2-2-1">
+<p>
+Lastly, online and offline MBO feel somewhat siloed, when really one leads to another. Ideally, we want to build a <i>good inductive prior</i> in the offline setting and then segue into online to refine the model with <i>real interactions</i>. But in practice, offline MBO is only concerned with models which produce high-scoring samples "out of the box" with respect to the reward oracle, not whether that same model can be effectively used by an online learning algorithm to efficiently query it.
+</p>
+
+<p>
+A real-world MBO workflow might appear as the following:
+</p>
+<ul class="org-ul">
+<li>(1) We start with offline data, e.g. past experiments, human preferences, etc.</li>
+<li>(2) Train a generative model on that data. It could be a conditional model \(\pt(x|y)\) or unconditional \(\pt(x)\). We may even decide to train a training proxy \(\ft(x)\) (which I will just "lump" into the generative model category).</li>
+<li>(3) Use generative model + some search algorithm to propose a small batch of high-scoring candidates and query those candidates with the reward oracle to obtain their labels.</li>
+<li>(4) Add the newly-obtained (input, label) pairs to the dataset.</li>
+<li>(5) Retrain or fine-tune the generative model on updated dataset.</li>
+<li>(6) Repeat steps (3)-(5) until budget is exhausted.</li>
+</ul>
+
+<p>
+For (3), examples of "use generative model" may include:
+</p>
+<ul class="org-ul">
+<li>Using the generative model as a prior, e.g. if \(\pt(x,y)=\pt(x|y)p(y)\), then the search algorithm can initialise its starting point via a sample from \(\pt(x|y)\).</li>
+<li>The search algorithm uses either \(\pt(x)\) or \(\pt(x|y)\) to evaluate the density (i.e., the plausibility) of any input it has proposed. Evaluating the density is possible with certain models such as time-continuous diffusion <a href="#citeproc_bib_item_13">[13]</a> and normalising flows.</li>
+</ul>
+
+<p>
+Here is a more concrete sketch of the algorithm with an added twist. First, to avoid any bias in assessing generalisation performance due to optimism, we use validation proxy \(\fvalid\) even during the online mode, and save the final evaluation with \(f\) until the very end. We also define a budget \(T_{\text{max}}\), which is how many evaluations we can perform in online mode:
+</p>
+
+<ul class="org-ul">
+<li>(1) Assume offline dataset \(\mathcal{D}\), split into \(\dtrain\), \(\dvalid\), and \(\dtest\). \(\fvalid\) is also trained on \(\dtrain \cup \dvalid\).</li>
+<li>(2) Train \(\pt\) on \(\dtrain\). (Here, \(\pt\) can refer to any density deemed useful, for instance \(\pt(x)\), or \(\pt(x,y)\).)</li>
+<li>(3) <b><b>Online mode.</b></b> For timestep \(t = 1, \dots, T\):
+<ul class="org-ul">
+<li>(3a) Use \(\pt\) with search algorithm to sample a batch of high-scoring candidates.</li>
+<li>(3b) Obtain labels of candidates with \(\fvalid\), compute mean reward \(r_t\) over the batch, save this value.</li>
+<li>(3c) Update \(\tilde{\mathcal{D}}\) with previously obtained labels and fine-tune \(\pt\) with it.</li>
+</ul></li>
+<li>(4) Compute <i>discounted</i> sum of reward: \(G_T = \sum_{t=1}^{T} \gamma^{t-1}r_t\) for discount rate \(\gamma\).</li>
+</ul>
+
+<p>
+The twist is an idea I took from RL, which is the <i>discounted sum of rewards</i>. This sum is meant to encode the notion that rewards obtained earlier carry larger weight than later, as each successive evaluation progressively increases the <i>overall cost</i> in querying the reward oracle.  By choosing this as the validation metric, we favour generative models and search algorithms which produce high-scoring candidates as cheaply as possible.
+</p>
+
+<p>
+(Hats off to my co-author Alex, who really instilled a sense of MBO needing to be cost-effective. I think this idea really hits at the heart of that.)
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-org6ad8e67" class="outline-3">
+<h3 id="org6ad8e67"><span class="section-number-3">2.3.</span> links, and open source</h3>
+<div class="outline-text-3" id="text-2-3">
+<p>
+Here are some things you may find useful:
+</p>
+<ul class="org-ul">
+<li>🛠️ <a href="https://github.com/christopher-beckham/validation-metrics-offline-mbo">[validation-metrics-offline-mbo]​</a>: the original code for my paper. This uses the DDPM style of diffusion model from Ho et al.</li>
+<li>🛠️ <a href="https://github.com/christopher-beckham/offline-mbo-edm">[offline-mbo-edm]​</a>: this is a bit more minimalistic and has a more up-to-date diffusion model which is EDM. Not only is this more performant, it generalises existing diffusion models which grants a lot of flexibility when it comes to deciding how to sample.</li>
+</ul>
+
+<p>
+Design Bench can take some time to setup, so whichever repo you look at I highly recommend you consult the installation readme I wrote here <a href="https://github.com/christopher-beckham/offline-mbo-edm/blob/master/INSTALL.org">here</a>. As of time of writing, the mainline branch for Design Bench has broken urls for its datasets, so you should switch to my branch:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-bash">git clone https://github.com/brandontrabucco/design-bench
+git checkout chris/fixes-v2
+<span style="color: #1f77bb; font-weight: bold;">cd</span> design-bench
+pip install . -e
+</pre>
+</div>
+</div>
+</div>
+</div>
+<div id="outline-container-org517ed86" class="outline-2">
+<h2 id="org517ed86"><span class="section-number-2">3.</span> References</h2>
+<div class="outline-text-2" id="text-3">
+<style>.csl-left-margin{float: left; padding-right: 0em;}
+ .csl-right-inline{margin: 0 0 0 2em;}</style><div class="csl-bib-body">
+  <div class="csl-entry"><a id="citeproc_bib_item_1"></a>
+    <div class="csl-left-margin">[1]</div><div class="csl-right-inline">C. Beckham, A. Piché, D. Vazquez, and C. Pal, “Exploring validation metrics for offline model-based optimisation with diffusion models,” <i>Transactions on machine learning research</i>, 2024.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_2"></a>
+    <div class="csl-left-margin">[2]</div><div class="csl-right-inline">F. Huszár, “How (not) to train your generative model: Scheduled sampling, likelihood, adversary?,” <i>Arxiv preprint arxiv:1511.05101</i>, 2015.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_3"></a>
+    <div class="csl-left-margin">[3]</div><div class="csl-right-inline">L. Theis, A. v. d. Oord, and M. Bethge, “A note on the evaluation of generative models,” <i>Arxiv preprint arxiv:1511.01844</i>, 2015.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_4"></a>
+    <div class="csl-left-margin">[4]</div><div class="csl-right-inline">M. Heusel, H. Ramsauer, T. Unterthiner, B. Nessler, G. Klambauer, and S. Hochreiter, “GANs trained by a two time-scale update rule converge to a Nash equilibrium,” <i>Corr</i>, vol. abs/1706.08500, 2017, Available: <a href="http://arxiv.org/abs/1706.08500">http://arxiv.org/abs/1706.08500</a></div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_5"></a>
+    <div class="csl-left-margin">[5]</div><div class="csl-right-inline">B. Trabucco, X. Geng, A. Kumar, and S. Levine, “Design-bench: Benchmarks for data-driven offline model-based optimization,” in <i>International conference on machine learning</i>, PMLR, 2022, pp. 21658–21676.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_6"></a>
+    <div class="csl-left-margin">[6]</div><div class="csl-right-inline">A. Kumar and S. Levine, “Model inversion networks for model-based optimization,” <i>Advances in neural information processing systems</i>, vol. 33, pp. 5126–5137, 2020.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_7"></a>
+    <div class="csl-left-margin">[7]</div><div class="csl-right-inline">D. Dowson and B. Landau, “The Fréchet distance between multivariate normal distributions,” <i>Journal of multivariate analysis</i>, vol. 12, no. 3, pp. 450–455, 1982.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_8"></a>
+    <div class="csl-left-margin">[8]</div><div class="csl-right-inline">T. Kynkäänniemi, T. Karras, S. Laine, J. Lehtinen, and T. Aila, “Improved precision and recall metric for assessing generative models,” <i>Advances in neural information processing systems</i>, vol. 32, 2019.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_9"></a>
+    <div class="csl-left-margin">[9]</div><div class="csl-right-inline">M. S. Sajjadi, O. Bachem, M. Lucic, O. Bousquet, and S. Gelly, “Assessing generative models via precision and recall,” <i>Advances in neural information processing systems</i>, vol. 31, 2018.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_10"></a>
+    <div class="csl-left-margin">[10]</div><div class="csl-right-inline">J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic models,” <i>Advances in neural information processing systems</i>, vol. 33, pp. 6840–6851, 2020.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_11"></a>
+    <div class="csl-left-margin">[11]</div><div class="csl-right-inline">P. Dhariwal and A. Nichol, “Diffusion models beat gans on image synthesis,” <i>Advances in neural information processing systems</i>, vol. 34, pp. 8780–8794, 2021.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_12"></a>
+    <div class="csl-left-margin">[12]</div><div class="csl-right-inline">J. Ho and T. Salimans, “Classifier-free diffusion guidance,” <i>Arxiv preprint arxiv:2207.12598</i>, 2022.</div>
+  </div>
+  <div class="csl-entry"><a id="citeproc_bib_item_13"></a>
+    <div class="csl-left-margin">[13]</div><div class="csl-right-inline">Y. Song, J. Sohl-Dickstein, D. P. Kingma, A. Kumar, S. Ermon, and B. Poole, “Score-based generative modeling through stochastic differential equations,” <i>Arxiv preprint arxiv:2011.13456</i>, 2020.</div>
+  </div>
+</div>
+</div>
+</div>
+<div id="footnotes">
+<h2 class="footnotes">Footnotes: </h2>
+<div id="text-footnotes">
+
+<div class="footdef"><sup><a id="fn.hillclimb" class="footnum" href="#fnr.hillclimb" role="doc-backlink">1</a></sup> <div class="footpara" role="doc-footnote"><p class="footpara">
+While online MBO also does a sort of hill climbing on the surrogate, the difference is that the resulting input is validated against the reward oracle, and this data is used to update the model.)
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.sim2real" class="footnum" href="#fnr.sim2real" role="doc-backlink">2</a></sup> <div class="footpara" role="doc-footnote"><p class="footpara">
+This should not be interpreted as discouraging "sim2real" experiments, where simulators are used to pre-train a model which is then adapted to a real world task. The difference is that if you treat the simulator as a training scaffold, then you need an external reward function to measure real performance. Otherwise, you're just evaluating on the same thing you are training on.
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.ddpm" class="footnum" href="#fnr.ddpm" role="doc-backlink">3</a></sup> <div class="footpara" role="doc-footnote"><p class="footpara">
+Conditional diffusion models are typically trained with dropout on the conditioning variable \(y\) (in our case, the reward). This makes them act as both unconditional and conditional models.
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.cont" class="footnum" href="#fnr.cont" role="doc-backlink">4</a></sup> <div class="footpara" role="doc-footnote"><p class="footpara">
+Continuous datasets were used as DDPM operates on continuous values. While discrete variants do exist, I did not explore these. The simplest way to extend this work to discrete datasets is to use a discrete VAE to encode samples into a continuous latent space and perform diffusion there instead.
+</p></div></div>
+
+
+</div>
+</div>
