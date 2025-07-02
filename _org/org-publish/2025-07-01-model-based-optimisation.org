@@ -20,12 +20,14 @@
 
 #+BEGIN_EXPORT html
 ---
-title: work reflection -- offline model-based optimisation
-description: TODO
+title: reflecting on past work -- offline model-based optimisation
+description: I’ve been thinking about offline model-based optimisation for the past six months, mostly in the background while working full-time, trying to write up something that captures both what I found and what still needs to be done in the field. It’s about validation, extrapolation, brittle surrogates, and how we evaluate generative models when the ground truth is expensive.
+tldr: I’ve been thinking about offline model-based optimisation for the past six months, mostly in the background while working full-time, trying to write up something that captures both what I found and what still needs to be done in the field. It’s about validation, extrapolation, brittle surrogates, and how we evaluate generative models when the ground truth is expensive.
+author: Christopher Beckham
 layout: default_latex
 ---
 
-<h1>work reflection -- offline model-based optimisation</h1>
+<h1>reflecting on past work -- offline model-based optimisation</h1>
 
 <div hidden>
 <!-- This should be consistent with LATEX_HEADER -->
@@ -53,9 +55,8 @@ $$\newcommand{\drest}{\mathcal{D}_{\text{rest}}}$$
 <div id="images">
 <br />
 <figure>
-<img class="figg" src="/assets/mbo/mbo-header.png" width="600" alt="" />
+<img class="figg" src="/assets/mbo/mbo-header.png" width="500" alt="" />
 </figure>
-<figcaption><b><i>Attribution: Trabucco et al, 2022 (Design Bench).</i></b></figcaption>
 <br />
 </div>
 #+END_EXPORT
@@ -70,7 +71,7 @@ $$\newcommand{\drest}{\mathcal{D}_{\text{rest}}}$$
 
 In this post, I introduce offline model-based optimisation and share some highlights from research I published at the tail end of my PhD [cite:@beckham2022exploring]. The focus is on issues of validation and extrapolation -- two topics that remain frustratingly underexplored in the field. Along the way, I offer an honest critique of my own work, reflect on broader challenges in offline MBO, and point to a few promising directions forward.
 
-While I’m no longer working full-time in academia, this topic still matters a lot to me. If any of it resonates with you -- whether you’re a researcher, engineer, or just curious, I’d love to chat, albeit in a bandwidth-conscious capacity.
+While I’m no longer working in academia, this topic still matters a lot to me. If any of it resonates with you -- whether you’re a researcher, engineer, or just curious, I’d love to chat, albeit in a bandwidth-conscious capacity.
 
 * intro - what is model-based optimisation?
 :PROPERTIES:
@@ -127,7 +128,7 @@ where $\ptrain(y)$ is the empirical distribution over the rewards in the trainin
 # conclusion: 2nd factorisation makes more sense, and generative models fit the task.
 # In the offline MBO setting, this is especially appealing. Since it is too expensive to interact with the ground truth reward function during training, we want a model which can both target high-reward regions and avoids generating unrealistic or adversarial inputs. Conditional generative models $\pt(x|y)$ offer a principled and practical way to achieve this. While generative models are not by any means invulernable to generating adversarial or implausible inputs, the key point is that plausibility is built into the model by design.
 
-** ‼️ reward-based extrapolation
+** reward-based extrapolation
 :PROPERTIES:
 :CUSTOM_ID: sec:intro_extrapolate
 :END:
@@ -171,7 +172,7 @@ Both data splits (which is just the full dataset) can actually used to train a /
 <figure>
 <img class="figg" src="/assets/mbo/mbo-train-val-workflow.png" width="700" alt="" />
 </figure>
-<figcaption><b><i>Figure 1: "Actual data distribution" signifies the real data, where the assumed max reward is 200. Since we assume our offline dataset only contained reward values between 0 and 100, if we want to measure extrapolation then we need to split this into two subsets. In this illustration, 0-50 is chosen for train and 50-100 for validation.</i></b></figcaption>
+<figcaption><b>Figure 1:</b>If we imagine our dataset (left) being split into low-to-medium (train) and high-scoring samples (validation), we first train a generative model on just the training set (the low-to-medium scoring samples). From this, we instantiate the extrapolated model, generate high scoring samples, then validate these with the validation proxy. The validation proxy in turn is trained on the full dataset, which makes it an appropriate "psuedo gold standard" the generative model can be scored against.</figcaption>
 <br />
 </div>
 #+END_EXPORT
@@ -231,7 +232,7 @@ Due to the different types of rewards oracles already mentioned, below is a tabl
 # simulated oracle
 # proxy oracle -> [validation proxy, test oracle]
 
-** the train/val/test recipe, moving forward
+** training, validation, and testing
 :PROPERTIES:
 :CUSTOM_ID: sec:intro_summary
 :END:
@@ -378,9 +379,9 @@ In principle, these metrics could be combined together as a sum (or a weighted s
 
 Other validation metrics I defined were:
 
-- $\mathcal{M}_{\text{FD}}$: Frechet Distance (/FD/) ([cite:@dowson1982frechet; @ttur]) between the distribution of samples coming from $\ptnew$  and the validation set. Note that this is /not/ the same as Frechet /Inception/ Distance (/FID/), which uses the ImageNet-pretrained Inception network as a feature extractor. Here, we define the feature extractor as being some suitable bottleneck in $\fvalid$, as we want to leverage features which are specific to the domain at hand.
-- $\mathcal{M}_{\text{DC}}$: The "density and coverage" metric proposed in [cite:@kynkaanniemi2019improved], which is an improved version of the precision and recall metric originally proposed in [cite:@sajjadi2018assessing]. This metric was originally motivated to tease out two important factors which determine how close two distributions are: sample quality and mode coverage, which can be thought of as precision and recall, respectively. While these terms can be individually computed, here I simply sum both terms, simply treating it as an alternative metric which can be compared to FD.
-- $\mathcal{M}_{\text{C-DSM}}$: The conditional denoising diffusion loss [cite:@ho2020denoising] but evaluated on the validation set. Essentially, we are asking how well the model can denoise high scoring samples that it has never seen before. Since DDPMs are /likelihood-based/ models, this is also a likelihood-based loss and therefore may not correlate well with sample quality. However, it is trivial to incorporate as a validation metric since it is already defined as a training loss.
+- $\mathcal{M}_{\text{FD}}(\tilde{p}; \tilde{f}, \dvalid)$: Frechet Distance (/FD/) ([cite:@dowson1982frechet; @ttur]) between the distribution of samples coming from $\ptnew$  and the validation set. Note that this is /not/ the same as Frechet /Inception/ Distance (/FID/), which uses the ImageNet-pretrained Inception network as a feature extractor. Here, we define the feature extractor as being some suitable bottleneck in $\fvalid$, as we want to leverage features which are specific to the domain at hand.
+- $\mathcal{M}_{\text{DC}}(\tilde{p}; \tilde{f}, \dvalid)$: The "density and coverage" metric proposed in [cite:@kynkaanniemi2019improved], which is an improved version of the precision and recall metric originally proposed in [cite:@sajjadi2018assessing]. This metric was originally motivated to tease out two important factors which determine how close two distributions are: sample quality and mode coverage, which can be thought of as precision and recall, respectively. While these terms can be individually computed, here I simply sum both terms, simply treating it as an alternative metric which can be compared to FD.
+- $\mathcal{M}_{\text{C-DSM}}(\tilde{p}; \dvalid)$: The conditional denoising diffusion loss [cite:@ho2020denoising] but evaluated on the validation set. Essentially, we are asking how well the model can denoise high scoring samples that it has never seen before. Since DDPMs are /likelihood-based/ models, this is also a likelihood-based loss and therefore may not correlate well with sample quality. However, it is trivial to incorporate as a validation metric since it is already defined as a training loss.
 
 Going back to the purpose of this work, we ask: what validation metrics work best, and how do we measure it? Ideally, evaluating validation metrics requires access to the reward oracle, as we need to measure them up against some gold standard. That’s where simulation environments become interesting: they give us access to a something which very closely mimics a real world oracle, letting us test how well different validation metrics correlate with the actual ground truth. The idea is to use this setup to run a large-scale comparison of metrics across many simulated datasets, so we can better understand which validation metrics are most trustworthy when we don’t have access to the ground truth. Ideally, this gives us actionable guidance for real-world MBO deployments.
 
@@ -442,7 +443,7 @@ Lastly, the results we obtained are shown below in Fig. (7).
 #+END_EXPORT
 
 
-** 🪵🔥 reflecting on this work, and future work
+* 🪵🔥 reflection, and future work
 
 In the name of transparency and introspection, I will discuss what I think could have been done better.
 
@@ -454,7 +455,7 @@ The paper [cite:@beckham2022exploring] was also tough to write, and honestly, so
 
 I'm not sure how I would have approached the project if I did it again. When I reflect on past and ongoing industry work in similar problems, I notice a recurring pattern: we lean heavily on proxy metrics for validation. They’re cheap, measurable, and give us a sense of progress. But they’re also brittle and riddled with edge cases. It’s hard not to conclude that, sooner or later, /all roads lead to human feedback models/. It’s the only thing which consistently captures what we actually care about, even if it's noisy and expensive. So what does this mean then for this type of research? Maybe we ought to focus on best approximating the reward oracle and incorporate the best of both worlds in a single model: reliable, domain-specific priors, but also cheap and heterogenous sources of human feedback. The cost of obtaining labels is still an issue, but based on current trends it seems like the ever-increasing scale of foundation models will progressively allow for fewer-shot fine-tuning or prompting on top of them, which is a label efficient solution.
 
-*** can we combine online and offline mbo?
+** can we combine online and offline mbo?
 
 Lastly, online and offline MBO feel somewhat siloed, when really one leads to another. Ideally, we want to build a /good inductive prior/ in the offline setting and then segue into online to refine the model with /real interactions/. But in practice, offline MBO is only concerned with models which produce high-scoring samples "out of the box" with respect to the reward oracle, not whether that same model can be effectively used by an online learning algorithm to efficiently query it.
 

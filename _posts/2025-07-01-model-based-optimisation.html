@@ -1,10 +1,12 @@
 ---
-title: work reflection -- offline model-based optimisation
-description: TODO
+title: reflecting on past work -- offline model-based optimisation
+description: I’ve been thinking about offline model-based optimisation for the past six months, mostly in the background while working full-time, trying to write up something that captures both what I found and what still needs to be done in the field. It’s about validation, extrapolation, brittle surrogates, and how we evaluate generative models when the ground truth is expensive.
+tldr: I’ve been thinking about offline model-based optimisation for the past six months, mostly in the background while working full-time, trying to write up something that captures both what I found and what still needs to be done in the field. It’s about validation, extrapolation, brittle surrogates, and how we evaluate generative models when the ground truth is expensive.
+author: Christopher Beckham
 layout: default_latex
 ---
 
-<h1>work reflection -- offline model-based optimisation</h1>
+<h1>reflecting on past work -- offline model-based optimisation</h1>
 
 <div hidden>
 <!-- This should be consistent with LATEX_HEADER -->
@@ -29,9 +31,8 @@ $$\newcommand{\drest}{\mathcal{D}_{\text{rest}}}$$
 <div id="images">
 <br />
 <figure>
-<img class="figg" src="/assets/mbo/mbo-header.png" width="600" alt="" />
+<img class="figg" src="/assets/mbo/mbo-header.png" width="500" alt="" />
 </figure>
-<figcaption><b><i>Attribution: Trabucco et al, 2022 (Design Bench).</i></b></figcaption>
 <br />
 </div>
 
@@ -42,33 +43,33 @@ $$\newcommand{\drest}{\mathcal{D}_{\text{rest}}}$$
 <li><a href="#sec:intro">1. intro - what is model-based optimisation?</a>
 <ul>
 <li><a href="#sec:intro_whatis">1.1. formalising offline mbo</a></li>
-<li><a href="#sec:intro_extrapolate">1.2. ‼️ reward-based extrapolation</a></li>
+<li><a href="#sec:intro_extrapolate">1.2. reward-based extrapolation</a></li>
 <li><a href="#sec:intro_evaldifficult">1.3. ‼️ why evaluation is difficult (and misunderstood)</a></li>
-<li><a href="#sec:intro_summary">1.4. the train/val/test recipe, moving forward</a></li>
+<li><a href="#sec:intro_summary">1.4. training, validation, and testing</a></li>
 </ul>
 </li>
 <li><a href="#sec:last_year">2. last year's work</a>
 <ul>
 <li><a href="#sec:last_year_valid_metrics">2.1. ranking validation metrics</a></li>
-<li><a href="#org8c22d3d">2.2. 🪵🔥 reflecting on this work, and future work</a>
+</ul>
+</li>
+<li><a href="#org3bc2fc8">3. 🪵🔥 reflection, and future work</a>
 <ul>
-<li><a href="#org1c5cb5a">2.2.1. can we combine online and offline mbo?</a></li>
+<li><a href="#org1c5cb5a">3.1. can we combine online and offline mbo?</a></li>
+<li><a href="#org7eb666c">3.2. links, and open source</a></li>
 </ul>
 </li>
-<li><a href="#org7eb666c">2.3. links, and open source</a></li>
-</ul>
-</li>
-<li><a href="#org96c074a">3. References</a></li>
+<li><a href="#org96c074a">4. References</a></li>
 </ul>
 </div>
 </div>
 
 <p>
-In this post, I introduce offline model-based optimisation and share some highlights from research I published at the tail end of my PhD NO_ITEM_DATA:beckham2022exploring. The focus is on issues of validation and extrapolation &#x2013; two topics that remain frustratingly underexplored in the field. Along the way, I offer an honest critique of my own work, reflect on broader challenges in offline MBO, and point to a few promising directions forward.
+In this post, I introduce offline model-based optimisation and share some highlights from research I published at the tail end of my PhD <a href="#citeproc_bib_item_1">[1]</a>. The focus is on issues of validation and extrapolation &#x2013; two topics that remain frustratingly underexplored in the field. Along the way, I offer an honest critique of my own work, reflect on broader challenges in offline MBO, and point to a few promising directions forward.
 </p>
 
 <p>
-While I’m no longer working full-time in academia, this topic still matters a lot to me. If any of it resonates with you &#x2013; whether you’re a researcher, engineer, or just curious, I’d love to chat, albeit in a bandwidth-conscious capacity.
+While I’m no longer working in academia, this topic still matters a lot to me. If any of it resonates with you &#x2013; whether you’re a researcher, engineer, or just curious, I’d love to chat, albeit in a bandwidth-conscious capacity.
 </p>
 <div id="outline-container-sec:intro" class="outline-2">
 <h2 id="sec:intro"><span class="section-number-2">1.</span> intro - what is model-based optimisation?</h2>
@@ -122,7 +123,7 @@ where \(\ptrain(y)\) is the empirical distribution over the rewards in the train
 </div>
 </div>
 <div id="outline-container-sec:intro_extrapolate" class="outline-3">
-<h3 id="sec:intro_extrapolate"><span class="section-number-3">1.2.</span> ‼️ reward-based extrapolation</h3>
+<h3 id="sec:intro_extrapolate"><span class="section-number-3">1.2.</span> reward-based extrapolation</h3>
 <div class="outline-text-3" id="text-sec:intro_extrapolate">
 <p>
 The key idea which seperates MBO from regular generative modelling is that we don't just want to generate any kind of sample from the model. We would like to generate samples whose <i>real</i> reward \(y\) is as large as possible, as these have the most real world utility. The difficulty lies in the fact that these (extremely) high scoring samples do not exist in the training set, otherwise MBO would be a much simpler task where we only need to generate things that plausibly look like what is already in the training set. This means MBO has to <i>extrapolate</i> &#x2013; it has to learn what constitutes low and medium-scoring samples, and infer what a high-scoring sample may look like.
@@ -174,7 +175,7 @@ Both data splits (which is just the full dataset) can actually used to train a <
 <figure>
 <img class="figg" src="/assets/mbo/mbo-train-val-workflow.png" width="700" alt="" />
 </figure>
-<figcaption><b><i>Figure 1: "Actual data distribution" signifies the real data, where the assumed max reward is 200. Since we assume our offline dataset only contained reward values between 0 and 100, if we want to measure extrapolation then we need to split this into two subsets. In this illustration, 0-50 is chosen for train and 50-100 for validation.</i></b></figcaption>
+<figcaption><b>Figure 1:</b>If we imagine our dataset (left) being split into low-to-medium (train) and high-scoring samples (validation), we first train a generative model on just the training set (the low-to-medium scoring samples). From this, we instantiate the extrapolated model, generate high scoring samples, then validate these with the validation proxy. The validation proxy in turn is trained on the full dataset, which makes it an appropriate "psuedo gold standard" the generative model can be scored against.</figcaption>
 <br />
 </div>
 </div>
@@ -249,7 +250,7 @@ Due to the different types of rewards oracles already mentioned, below is a tabl
 </div>
 </div>
 <div id="outline-container-sec:intro_summary" class="outline-3">
-<h3 id="sec:intro_summary"><span class="section-number-3">1.4.</span> the train/val/test recipe, moving forward</h3>
+<h3 id="sec:intro_summary"><span class="section-number-3">1.4.</span> training, validation, and testing</h3>
 <div class="outline-text-3" id="text-sec:intro_summary">
 <p>
 As discussed in Sec. <a href="#sec:intro_extrapolate">1.2</a>, we need to measure not just generalisation, but extrapolation. If our validation set follows the proposed setup in Fig. (1), then we can just approximate Eqn. (1) by introducing some approximate reward model \(\tilde{f}\):
@@ -396,9 +397,9 @@ Other validation metrics I defined were:
 </p>
 
 <ul class="org-ul">
-<li>\(\mathcal{M}_{\text{FD}}\): Frechet Distance (<i>FD</i>) (<a href="#citeproc_bib_item_4">[4]</a>, <a href="#citeproc_bib_item_7">[7]</a>) between the distribution of samples coming from \(\ptnew\)  and the validation set. Note that this is <i>not</i> the same as Frechet <i>Inception</i> Distance (<i>FID</i>), which uses the ImageNet-pretrained Inception network as a feature extractor. Here, we define the feature extractor as being some suitable bottleneck in \(\fvalid\), as we want to leverage features which are specific to the domain at hand.</li>
-<li>\(\mathcal{M}_{\text{DC}}\): The "density and coverage" metric proposed in <a href="#citeproc_bib_item_8">[8]</a>, which is an improved version of the precision and recall metric originally proposed in <a href="#citeproc_bib_item_9">[9]</a>. This metric was originally motivated to tease out two important factors which determine how close two distributions are: sample quality and mode coverage, which can be thought of as precision and recall, respectively. While these terms can be individually computed, here I simply sum both terms, simply treating it as an alternative metric which can be compared to FD.</li>
-<li>\(\mathcal{M}_{\text{C-DSM}}\): The conditional denoising diffusion loss <a href="#citeproc_bib_item_10">[10]</a> but evaluated on the validation set. Essentially, we are asking how well the model can denoise high scoring samples that it has never seen before. Since DDPMs are <i>likelihood-based</i> models, this is also a likelihood-based loss and therefore may not correlate well with sample quality. However, it is trivial to incorporate as a validation metric since it is already defined as a training loss.</li>
+<li>\(\mathcal{M}_{\text{FD}}(\tilde{p}; \tilde{f}, \dvalid)\): Frechet Distance (<i>FD</i>) (<a href="#citeproc_bib_item_4">[4]</a>, <a href="#citeproc_bib_item_7">[7]</a>) between the distribution of samples coming from \(\ptnew\)  and the validation set. Note that this is <i>not</i> the same as Frechet <i>Inception</i> Distance (<i>FID</i>), which uses the ImageNet-pretrained Inception network as a feature extractor. Here, we define the feature extractor as being some suitable bottleneck in \(\fvalid\), as we want to leverage features which are specific to the domain at hand.</li>
+<li>\(\mathcal{M}_{\text{DC}}(\tilde{p}; \tilde{f}, \dvalid)\): The "density and coverage" metric proposed in <a href="#citeproc_bib_item_8">[8]</a>, which is an improved version of the precision and recall metric originally proposed in <a href="#citeproc_bib_item_9">[9]</a>. This metric was originally motivated to tease out two important factors which determine how close two distributions are: sample quality and mode coverage, which can be thought of as precision and recall, respectively. While these terms can be individually computed, here I simply sum both terms, simply treating it as an alternative metric which can be compared to FD.</li>
+<li>\(\mathcal{M}_{\text{C-DSM}}(\tilde{p}; \dvalid)\): The conditional denoising diffusion loss <a href="#citeproc_bib_item_10">[10]</a> but evaluated on the validation set. Essentially, we are asking how well the model can denoise high scoring samples that it has never seen before. Since DDPMs are <i>likelihood-based</i> models, this is also a likelihood-based loss and therefore may not correlate well with sample quality. However, it is trivial to incorporate as a validation metric since it is already defined as a training loss.</li>
 </ul>
 
 <p>
@@ -466,9 +467,10 @@ Lastly, the results we obtained are shown below in Fig. (7).
 </div>
 </div>
 </div>
-<div id="outline-container-org8c22d3d" class="outline-3">
-<h3 id="org8c22d3d"><span class="section-number-3">2.2.</span> 🪵🔥 reflecting on this work, and future work</h3>
-<div class="outline-text-3" id="text-2-2">
+</div>
+<div id="outline-container-org3bc2fc8" class="outline-2">
+<h2 id="org3bc2fc8"><span class="section-number-2">3.</span> 🪵🔥 reflection, and future work</h2>
+<div class="outline-text-2" id="text-3">
 <p>
 In the name of transparency and introspection, I will discuss what I think could have been done better.
 </p>
@@ -478,16 +480,16 @@ The fundamental question we are trying to answer is: given a list of validation 
 </p>
 
 <p>
-The paper NO_ITEM_DATA:beckham2022exploring was also tough to write, and honestly, so was this blog post. Maybe it’s because there were just too many ideas bouncing around at once: the importance of using a <i>validation set</i>, how to design that set to test <i>extrapolation</i>, thinking about MBO through the lens of <i>generative modeling</i>, and on top of that, proposing the use <i>diffusion</i> models &#x2013; which, at the time, hadn’t really been explored in offline MBO. It would’ve been much simpler to just stick to the message of "validation sets, but for extrapolation". But at the time, that felt almost too obvious, like writing a paper just to say that validation sets are useful (which we already take for granted). But things that are supposedly "obvious" sometimes get published and go on to accrue hundreds of citations at the least, so maybe my barometer for that is miscalibrated.
+The paper <a href="#citeproc_bib_item_1">[1]</a> was also tough to write, and honestly, so was this blog post. Maybe it’s because there were just too many ideas bouncing around at once: the importance of using a <i>validation set</i>, how to design that set to test <i>extrapolation</i>, thinking about MBO through the lens of <i>generative modeling</i>, and on top of that, proposing the use <i>diffusion</i> models &#x2013; which, at the time, hadn’t really been explored in offline MBO. It would’ve been much simpler to just stick to the message of "validation sets, but for extrapolation". But at the time, that felt almost too obvious, like writing a paper just to say that validation sets are useful (which we already take for granted). But things that are supposedly "obvious" sometimes get published and go on to accrue hundreds of citations at the least, so maybe my barometer for that is miscalibrated.
 </p>
 
 <p>
 I'm not sure how I would have approached the project if I did it again. When I reflect on past and ongoing industry work in similar problems, I notice a recurring pattern: we lean heavily on proxy metrics for validation. They’re cheap, measurable, and give us a sense of progress. But they’re also brittle and riddled with edge cases. It’s hard not to conclude that, sooner or later, <i>all roads lead to human feedback models</i>. It’s the only thing which consistently captures what we actually care about, even if it's noisy and expensive. So what does this mean then for this type of research? Maybe we ought to focus on best approximating the reward oracle and incorporate the best of both worlds in a single model: reliable, domain-specific priors, but also cheap and heterogenous sources of human feedback. The cost of obtaining labels is still an issue, but based on current trends it seems like the ever-increasing scale of foundation models will progressively allow for fewer-shot fine-tuning or prompting on top of them, which is a label efficient solution.
 </p>
 </div>
-<div id="outline-container-org1c5cb5a" class="outline-4">
-<h4 id="org1c5cb5a"><span class="section-number-4">2.2.1.</span> can we combine online and offline mbo?</h4>
-<div class="outline-text-4" id="text-2-2-1">
+<div id="outline-container-org1c5cb5a" class="outline-3">
+<h3 id="org1c5cb5a"><span class="section-number-3">3.1.</span> can we combine online and offline mbo?</h3>
+<div class="outline-text-3" id="text-3-1">
 <p>
 Lastly, online and offline MBO feel somewhat siloed, when really one leads to another. Ideally, we want to build a <i>good inductive prior</i> in the offline setting and then segue into online to refine the model with <i>real interactions</i>. But in practice, offline MBO is only concerned with models which produce high-scoring samples "out of the box" with respect to the reward oracle, not whether that same model can be effectively used by an online learning algorithm to efficiently query it.
 </p>
@@ -537,10 +539,9 @@ The twist is an idea I took from RL, which is the <i>discounted sum of rewards</
 </p>
 </div>
 </div>
-</div>
 <div id="outline-container-org7eb666c" class="outline-3">
-<h3 id="org7eb666c"><span class="section-number-3">2.3.</span> links, and open source</h3>
-<div class="outline-text-3" id="text-2-3">
+<h3 id="org7eb666c"><span class="section-number-3">3.2.</span> links, and open source</h3>
+<div class="outline-text-3" id="text-3-2">
 <p>
 Here are some things you may find useful:
 </p>
@@ -564,11 +565,13 @@ pip install . -e
 </div>
 </div>
 <div id="outline-container-org96c074a" class="outline-2">
-<h2 id="org96c074a"><span class="section-number-2">3.</span> References</h2>
-<div class="outline-text-2" id="text-3">
+<h2 id="org96c074a"><span class="section-number-2">4.</span> References</h2>
+<div class="outline-text-2" id="text-4">
 <style>.csl-left-margin{float: left; padding-right: 0em;}
  .csl-right-inline{margin: 0 0 0 2em;}</style><div class="csl-bib-body">
-  <div class="csl-entry">NO_ITEM_DATA:beckham2022exploring</div>
+  <div class="csl-entry"><a id="citeproc_bib_item_1"></a>
+    <div class="csl-left-margin">[1]</div><div class="csl-right-inline">C. Beckham, A. Piché, D. Vazquez, and C. Pal, “Exploring validation metrics for offline model-based optimisation with diffusion models,” <i>Transactions on machine learning research</i>, 2024.</div>
+  </div>
   <div class="csl-entry"><a id="citeproc_bib_item_2"></a>
     <div class="csl-left-margin">[2]</div><div class="csl-right-inline">F. Huszár, “How (not) to train your generative model: Scheduled sampling, likelihood, adversary?,” <i>Arxiv preprint arxiv:1511.05101</i>, 2015.</div>
   </div>
